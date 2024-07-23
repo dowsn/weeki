@@ -1,0 +1,56 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+<h2>Edit Weeki</h2>
+<form method="post" id="editWeekiForm">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="mb-3">
+        <label>Category:</label>
+        <div class="category-selector">
+            {% for category in categories %}
+            <button type="button" class="category-button {% if category.id == weeki.category.id %}active{% endif %}" data-category-id="{{ category.id }}">
+                <div class="category-icon">
+                    {% if category.name == 'myself' %}
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="7" r="4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    {% elif category.name == 'productive' %}
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <polyline points="22 4 12 14.01 9 11.01" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    {% elif category.name == 'social' %}
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="9" cy="7" r="4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    {% else %}
+                    <!-- Default icon if category is not recognized -->
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 8v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 12h8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    {% endif %}
+                </div>
+                <span>{{ category.name }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        {{ form.category.errors }}
+        {{ form.category }}
+    </div>
+
+  <div class="mb-3">
+      {{ form.content.errors }}
+      {{ form.content }}
+  </div>
+
+    <button type="submit" class="btn btn-primary">Update Weeki</button>
+</form>
+{% endblock %}

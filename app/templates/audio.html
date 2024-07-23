@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Text</title>
+</head>
+<body>
+    <h1>Speech to Text</h1>
+    <button id="start-recording">Start Recording</button>
+    <p id="status">Status: Idle</p>
+    <p id="transcription"></p>
+
+    <script>
+        const startButton = document.getElementById('start-recording');
+        const statusDisplay = document.getElementById('status');
+        const transcriptionDisplay = document.getElementById('transcription');
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingTimeout;
+        let transcribeInterval;
+        let accumulatedTranscription = "";
+
+        startButton.addEventListener('click', async () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                clearTimeout(recordingTimeout);
+                clearInterval(transcribeInterval);
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.onstart = () => {
+                    statusDisplay.textContent = 'Status: Recording...';
+                    audioChunks = [];
+                    startButton.textContent = 'Stop Recording';
+                    accumulatedTranscription = "";
+                    transcriptionDisplay.textContent = "";
+
+                    // Start interval to transcribe every 3 seconds
+                    transcribeInterval = setInterval(transcribePartialAudio, 3000);
+                };
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    statusDisplay.textContent = 'Status: Processing...';
+                    startButton.textContent = 'Start Recording';
+                    clearInterval(transcribeInterval);
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    await transcribeAudioBlob(audioBlob, true);
+                    statusDisplay.textContent = 'Status: Idle';
+                };
+
+                mediaRecorder.start();
+                recordingTimeout = setTimeout(() => mediaRecorder.stop(), 60000); // Record for 1 minute
+            } catch (error) {
+                statusDisplay.textContent = 'Status: Error accessing microphone';
+                console.error('Error accessing microphone', error);
+            }
+        });
+
+        async function transcribePartialAudio() {
+            if (audioChunks.length === 0) return;
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            await transcribeAudioBlob(audioBlob, false);
+        }
+
+        async function transcribeAudioBlob(audioBlob, isFinal) {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.wav');
+
+            const response = await fetch('/app/transcribe/', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (isFinal) {
+                    accumulatedTranscription += result.transcription;
+                } else {
+                    accumulatedTranscription += " " + result.transcription;
+                }
+                transcriptionDisplay.textContent = 'Transcription: ' + accumulatedTranscription.trim();
+
+                // Clear audio chunks if not final to continue recording
+                if (!isFinal) {
+                    audioChunks = [];
+                }
+            } else {
+                transcriptionDisplay.textContent = 'Error transcribing audio';
+            }
+        }
+    </script>
+</body>
+</html>

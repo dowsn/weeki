@@ -1,0 +1,108 @@
+.table {
+  border-collapse: separate;
+  border-spacing: 15px 15px; /* Increased spacing */
+}
+
+#yearGridContainer {
+  display: flex;
+  justify-content: center;
+}
+
+.yearList {
+  list-style-type: none;
+  padding: 0;
+}
+.yearLabel {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px 15px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.3s;
+}
+.yearLabel:hover {
+  background-color: #e0e0e0;
+}
+.yearLabel::after {
+  content: '▼';
+  font-size: 0.8em;
+}
+.yearLabel.active {
+  background-color: #d0d0d0;
+}
+.yearLabel.active::after {
+  content: '▲';
+}
+.yearGrid {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  padding: 15px;
+  margin-top: -5px;
+  margin-bottom: 10px;
+  display: none;
+}
+
+/* General cell styling */
+.table td {
+  width: 60px; /* Increased from 40px */
+  height: 60px; /* Increased from 40px */
+  padding: 0;
+  text-align: center;
+  cursor: pointer;
+  vertical-align: middle;
+  font-size: 12px; /* Slightly increased font size */
+}
+/* Styling for cells with values */
+.table td[value] {
+  border: 2px solid black;
+  border-radius: 12px; /* Increased for larger cells */
+  overflow: hidden;
+}
+/* Styling for quartal label cells */
+.table td.quartal-label {
+  border: none;
+  font-weight: bold;
+}
+/* Flex container for colored elements */
+.weekiColors {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 10px);
+  padding: 5px;
+}
+/* Individual color element */
+.weekiColorElement {
+  flex: 1;
+  min-height: 0;
+  margin: 2px 0; /* Add some vertical spacing between elements */
+  border-radius: 6px; /* Add border radius */
+  padding: 5px; /* Add padding */
+}
+/* Quartal spacing */
+.quartal-spacer {
+  height: 60px; /* Increased from 40px */
+}
+
+td:empty {
+  cursor: default;
+}
+
+@keyframes blink-border {
+  0%, 100% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: black; /* You can change this to any color you prefer */
+  }
+}
+
+td:has(.currentWeek) {
+  animation: blink-border 1s linear infinite;
+  border: 2px solid transparent;
+}

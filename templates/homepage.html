@@ -1,0 +1,24 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+<script>
+$(document).ready(function() {
+  var video = $('.mainVideo');
+  if (video) {
+    video.play();
+  }
+});
+</script>
+
+<div class="video-wrapper">
+    <video loop autoplay playsinline muted preload="auto" class="mainVideo">
+        <source src="{{ MEDIA_URL }}/video/main_video.mp4" type="video/mp4" alt="Film style: hyperrealistic, cinematic style. Camera frame: View on the beach. Sand of the beach: white, Sky: sunset orange sky, slightly cloudy. Sea: light blue, with small waves. Persona: Greek philosopher in white robe with white hair is sitting on a stone near the seashore. The Greek philosopher is thinking deeply and looking at the small waves at the sea. The philosopher has a stone in his hand and throws it into the water. Then the Greek Philosopher looks upwards to the sky and nods.">
+        Your browser does not support the video tag.
+    </video>
+    <div class="text-overlay">
+        <div class="text-myself" style="text-align:left">weekly experiences</div><div style="display:flex"><div class="text-social">powering</div>&nbsp; <div class="text-productive">future visions</div></div>
+    </div>
+</div>
+
+
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+<style>
+    .grid {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .year {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+    .year-name {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    .month {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 10px;
+        width: calc(100% / 3);
+    }
+    .month-name {
+        width: 100%;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+    }
+    .week {
+        border: 1px solid black;
+        height: 50px;
+        width: 100%;
+    }
+    .quartal-end {
+        width: 100%;
+        height: 20px;
+        background-color: gray;
+    }
+</style>
+
+<div class="grid">
+    {% for year in years %}
+        <div class="year">            <div class="year-name">{{ year }}</div>
+
+          
+            <!-- {% for quartal, weeks in quartals.items %}
+                <div class="month">                    <div class="month-name">{{ quartal }}</div>
+                    {% for week, weekis in weeks.items %}
+                        <div class="week">                            {{ week }} 
+                          
+                            <!-- {% for weeki in weekis %}
+                                {{ weeki }}
+                            {% endfor %} -->
+                        </div>
+                    {% endfor %}
+                    <div class="quartal-end"></div>
+                </div>
+            {% endfor %} -->
+        </div>
+    {% endfor %}
+   
+
+
+{% endblock %}

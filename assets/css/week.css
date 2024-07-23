@@ -1,0 +1,74 @@
+.categories-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.week-category {
+  width: 100%;
+  margin-bottom: 30px;
+}
+
+
+
+.weekis-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.weeki-box {
+  border: 2px solid;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  transition: box-shadow 0.3s ease;
+}
+
+.weeki-box:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.weeki-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.weeki-date {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.weeki-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 10px;
+  color: #555;
+  font-size: 1.1em;
+  transition: color 0.2s ease;
+}
+
+.weeki-actions button:hover {
+  color: #000;
+}
+
+.edit-btn:hover {
+  color: #4CAF50;
+}
+
+.delete-btn:hover {
+  color: #F44336;
+}
+
+.weeki-content {
+  padding: 15px;
+  line-height: 1.6;
+}

@@ -1,0 +1,17 @@
+
+{% extends 'base_layout.html' %}
+
+{% block content %}
+  <div>BlogPosts</div>
+  {% for blog_post in blog_list %}
+    <div>
+      <a href="{% url 'blog:detail' slug=blog_post.slug %}">
+      <h3>{{ blog_post.title }}</h3>
+        </a>
+      <img src="{{ blog_post.thumb.url }}" alt="{{ blog_post.title }}">
+      <p>{{ blog_post.snippet }}</p>
+      <p>{{ blog_post.author }}</p>
+    </div>
+  {% endfor %}
+
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+
+
+<div id="selectorContainer">
+  <select data-year="{{ year }}" id="weekSelector" onchange="openWeek()">
+      {% for week in weeks %}
+            <option {% if week.id == selected_week %} selected {% endif %} value="{{ week.value }}">Week {{ week.value }}: {{ week.date_start }} - {{week.date_end }}</option>
+      {% endfor %}
+  </select>
+</div>
+<a href="{% url 'app:week' %}">
+    <button>Now</button>
+</a>
+
+<br>
+<br>
+<a href="{% url 'app:weeki_new_with_weekID' weekID=selected_week %}">
+  Add Weeki
+</a>
+
+
+<div class="categories-container">
+  {% for category in categories_with_weekis %}
+  <div class="week-category">
+    <h2>{{ category.name }}</h2>
+    <div class="weekis-container">
+      {% for weeki in category.weekis %}
+        <div class="weeki-box" style="border-color: {{ category.default_color }};">
+          <div class="weeki-header">
+            <span class="weeki-date">{{ weeki.date_created }}</span>
+            <div class="weeki-actions">
+              <button class="edit-btn" onclick="editWeeki({{ weeki.id }})">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="delete-btn" data-weeki-id="{{ weeki.id }}" onclick="deleteWeeki({{ weeki.id }})">
+                  <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+          <div class="weeki-content">
+            {{ weeki.content }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% load static  %}
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <!-- scripts -->
+  <script src="{% static 'js/jquery.js' %}"></script>
+  <script src= '{% static "js/scripts.js" %}'></script>
+  <script src='{% static "js/slugify.js" %}'></script>
+  <script src='{% static "js/cookies.js" %}'></script>
+  <script src='{% static "js/api.js" %}'></script>
+
+  <!-- view scripts -->
+  <script src='{% static "js/year.js" %}'></script>
+
+  <!-- styles -->
+  <link rel="stylesheet" href='{% static "css/style.css" %}'>
+
+  <!-- view styles -->
+  <link rel="stylesheet" href='{% static "css/year.css" %}'>
+  <link rel="stylesheet" href='{% static "css/week.css" %}'>
+
+  <!-- meta -->
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>
+{% if title != None and title != '' %}
+  {{ title|capfirst }}
+{% else %}
+  {{ APP_NAME }}
+{% endif %}
+</title>
+</head>
+<body>
+  {% csrf_token %}
+  <header class="wrapper">
+
+    {% include 'app_navbar.html' %}
+
+  </header>
+
+  <div class="wrapper">
+  {% block content %}
+  {% endblock %}
+    </div>
+  <footer class="wrapper">
+    {% include 'app_footer.html' %}
+  </footer>
+</body>
+</html>

@@ -1,0 +1,34 @@
+[tool.poetry]
+authors = ["Lukas"]
+description = ""
+name = "weeki"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+Django = "^5.0"
+python = "^3.10"
+pillow = "10.3.0"
+xhtml2pdf = "0.2.15"
+jinja2 = "3.1.4"
+humanize = "4.9.0"
+pyaudio = "0.2.14"
+pyaudio-wheels = "0.0.1"
+whisper = "^1.0.0"
+torch = "^1.11.0"
+psycopg2-binary = "2.9.9"
+dj-database-url = "2.2.0"
+[tool.poetry.dev-dependencies]
+
+[tool.pyright]
+# https://github.com/microsoft/pyright/blob/main/docs/configuration.md
+useLibraryCodeForTypes = true
+exclude = [".cache"]
+
+[tool.ruff]
+# https://beta.ruff.rs/docs/configuration/
+select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
+ignore = ['W291', 'W292', 'W293']
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

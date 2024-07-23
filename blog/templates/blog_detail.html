@@ -1,0 +1,12 @@
+{% extends 'base_layout.html' %}
+{% block content %}
+
+<div>BlogPost</div>
+<div>
+  <h1>{{% url 'blog_post:title' %}}"</h1>
+   <img src="{{ blog_post.thumb.url }}" alt="{{ blog_post.title }}">
+  <p>{{ blog_post.author }}</p>
+  <p>{{ blog_post.content }}</p>
+
+  
+</div>

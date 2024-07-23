@@ -1,0 +1,40 @@
+{% extends 'base_layout.html' %}
+
+{% load static %}
+
+{% block content %}
+
+{% if user.is_authenticated %}
+
+<link rel="stylesheet" href='{% static "css/extra.css" %}'>
+
+
+<h1>{{ user.username }}</h1>
+<div class="progress-bar">
+    <span class="progress-bar-fill" style="width: {{ life_percentage }}%;">
+        {{ life_percentage }}%
+    </span>
+</div>
+<br>
+
+<a href="{% url 'app:memento_mori' %}" target="_blank" rel="noopener noreferrer" class="external-link-button">
+    memento mori
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+    </svg>
+</a>
+
+<br>
+<br>
+
+<br>
+
+<div class="logout">
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit">Logout</button>
+    </form>
+</div>
+{% endif %}
+
+{% endblock %}

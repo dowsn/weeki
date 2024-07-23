@@ -1,0 +1,30 @@
+{% extends 'base_layout.html' %}
+
+{% load static %}
+{% block content %}
+
+
+<link rel="stylesheet" href='{% static "css/memento_mori.css" %}'>
+
+    <div class="container">
+        {% for year_data in years_data %}
+            <div class="grid-row">
+                <div class="year">
+                    {% if year_data.show_label %}
+                        Year {{ forloop.counter0 }}
+                    {% endif %}
+                </div>
+                <div class="weeks">
+                    {% for week in year_data.weeks %}
+                  <div class="week {% if week.filled %}filled{% endif %} {% if week.last %}last{% endif %}">
+                            {% if forloop.parentloop.first and week.label %}
+                                <span class="week-label">{{ week.label }}</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}

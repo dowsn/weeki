@@ -1,0 +1,12 @@
+<div id='listenButton'>Click</div>
+
+<script>$('#listenButton').click(function() {
+    $.ajax({
+        url: '/listen_to_mic/',
+        method: 'GET',
+        success: function(data) {
+            console.log(data.result);
+        }
+    });
+});
+  </script>

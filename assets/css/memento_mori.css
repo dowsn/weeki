@@ -1,0 +1,64 @@
+
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.grid-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1px;
+}
+.grid-row:nth-child(5n) {
+  margin-bottom: 5px;
+}
+
+.year {
+  width: 45px;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: left;
+  margin-right: 10px;
+}
+
+
+.weeks {
+  display: flex;
+  flex-grow: 1;
+}
+.week {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #000;
+  border-radius: 50%;
+  margin-right: 2px;
+  position: relative;
+}
+
+.week.last {
+  animation: blinkingBackground 1s infinite alternate;
+}
+
+@keyframes blinkingBackground {
+  0% {
+    background-color: black;
+  }
+  100% {
+    background-color: white;
+  }
+}
+.week:nth-child(4n) {
+  margin-right: 6px;
+}
+.filled {
+  background-color: #000;
+}
+.week-label {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+}
