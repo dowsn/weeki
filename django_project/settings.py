@@ -54,7 +54,7 @@ CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
 
 # Application definition, componenets of the project
 
-DEEPGRAM_API_KEY = '4248298573ea7e694589872c3848a650e1e450f9'
+DEEPGRAM_API_KEY = ''
 
 INSTALLED_APPS = [
     'channels',

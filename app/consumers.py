@@ -6,32 +6,40 @@ import base64
 import logging
 
 
-DG_API_KEY = settings.DEEPGRAM_API_KEY
-deepgram = Deepgram(DG_API_KEY)
+class TranscriptConsumer(AsyncWebsocketConsumer):
+  dg_client = Deepgram(os.getenv('DEEPGRAM_API_KEY'))
 
+  async def get_transcript(self, data: Dict) -> None:
+    if 'channel' in data:
+      transcript = data['channel']['alternatives'][0]['transcript']
 
-            logger = logging.getLogger(__name__)
+      if transcript:
+        await self.send(transcript)
 
-            class TranscriptionConsumer(AsyncWebsocketConsumer):
-                async def connect(self):
-                    await self.accept()
-                    logger.info("WebSocket connection accepted.")
+  async def connect_to_deepgram(self):
+    try:
+      self.socket = await self.dg_client.transcription.live({
+          'punctuate':
+          True,
+          'interim_results':
+          False
+      })
+      self.socket.registerHandler(
+          self.socket.event.CLOSE,
+          lambda c: print(f'Connection closed with code {c}.'))
+      self.socket.registerHandler(self.socket.event.TRANSCRIPT_RECEIVED,
+                                  self.get_transcript)
 
-                async def disconnect(self, close_code):
-                    logger.info(f"WebSocket connection closed with code: {close_code}")
+    except Exception as e:
+      raise Exception(f'Could not open socket: {e}')
 
-                async def receive(self, text_data):
-                    try:
-                        audio_base64 = json.loads(text_data)['audio']
-                        audio_bytes = base64.b64decode(audio_base64)
+  async def connect(self):
+    await self.connect_to_deepgram()
+    await self.accept()
 
-                        response = await deepgram.transcription.prerecorded(
-                            audio_bytes, options={'language': 'en-US'})
-                        transcript = response['results']['channels'][0]['alternatives'][0]['transcript']
+    async def disconnect(self, close_code):
+      await self.channel_layer.group_discard(self.room_group_name,
+                                             self.channel_name)
 
-                        await self.send(text_data=json.dumps({'message': transcript}))
-                        logger.info("Transcription sent to client.")
-                    except Exception as e:
-                        logger.error(f"Error in receiving data: {e}")
-                        await self.send(text_data=json.dumps({'message': 'Error in processing audio'}))
-                        await self.close()
+    async def receive(self, bytes_data):
+      self.socket.send(bytes_data)
