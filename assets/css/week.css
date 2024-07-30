@@ -1,3 +1,9 @@
+
+.week_label {
+  display: flex;
+  justify-content: center;
+}
+
 .categories-container {
   display: flex;
   flex-direction: column;
@@ -70,5 +76,7 @@
 
 .weeki-content {
   padding: 15px;
+  background-color: var(--main-lightest)
+}
   line-height: 1.6;
 }

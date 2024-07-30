@@ -1,30 +1,37 @@
 {% extends 'base_layout.html' %}
 
+{% load static %}
 {% block content %}
+<script src='{% static "js/week.js" %}'></script>
+<link rel="stylesheet" href='{% static "css/week.css" %}'>
 
-
-<div id="selectorContainer">
+<div class="selectorContainer">
   <select data-year="{{ year }}" id="weekSelector" onchange="openWeek()">
       {% for week in weeks %}
-            <option {% if week.id == selected_week %} selected {% endif %} value="{{ week.value }}">Week {{ week.value }}: {{ week.date_start }} - {{week.date_end }}</option>
+            <option {% if week.id == selected_week %} selected {% endif %} value="{{ week.value }}">{{ t_week|capfirst }} {{ week.value }}: {{ week.date_start }} - {{week.date_end }}</option>
       {% endfor %}
   </select>
-</div>
+
 <a href="{% url 'app:week' %}">
-    <button>Now</button>
+    <button class="green-button">Now</button>
 </a>
+  </div>
 
 <br>
 <br>
+
+
 <a href="{% url 'app:weeki_new_with_weekID' weekID=selected_week %}">
+  <button class="middleButton green-button">
   Add Weeki
+  </button>
 </a>
 
 
 <div class="categories-container">
   {% for category in categories_with_weekis %}
   <div class="week-category">
-    <h2>{{ category.name }}</h2>
+    <h2 class="week_label">{{ category.name }}</h2>
     <div class="weekis-container">
       {% for weeki in category.weekis %}
         <div class="weeki-box" style="border-color: {{ category.default_color }};">

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Week, Profile, Weeki, Year, Category
+from .models import Week, Profile, Weeki, Year, Category, Language, Translation
 from .models import ErrorLog
 
 # Register your models here.
@@ -8,6 +8,8 @@ admin.site.register(Profile)
 admin.site.register(Weeki)
 admin.site.register(Year)
 admin.site.register(Category)
+admin.site.register(Language)
+admin.site.register(Translation)
 
 
 @admin.register(ErrorLog)

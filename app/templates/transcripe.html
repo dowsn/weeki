@@ -1,0 +1,83 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+<button id="recordButton">Record</button>
+<textarea id="transcriptionText" rows="10" cols="50"></textarea>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    const recordButton = document.getElementById('recordButton');
+    const transcriptionText = document.getElementById('transcriptionText');
+
+    recordButton.addEventListener('click', toggleRecording);
+
+    async function toggleRecording() {
+        if (!isRecording) {
+            await startRecording();
+        } else {
+            stopRecording();
+        }
+    }
+
+    async function startRecording() {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = sendAudioData;
+
+        mediaRecorder.start(1000);
+        isRecording = true;
+        recordButton.textContent = 'Stop';
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        isRecording = false;
+        recordButton.textContent = 'Record';
+    }
+
+    function sendAudioData() {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        const eventSource = new EventSource('/app/transcribe/');
+
+        eventSource.onmessage = (event) => {
+            transcriptionText.value += event.data + ' ';
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('EventSource error:', error);
+            eventSource.close();
+        };
+
+        fetch('/app/transcribe/', {
+            method: 'POST',
+            body: audioBlob
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        }).catch(error => {
+            console.error('Error sending audio data:', error);
+        }).finally(() => {
+            eventSource.close();
+            audioChunks = [];
+        });
+    }
+</script>
+
+{% endblock %}

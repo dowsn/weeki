@@ -49,6 +49,31 @@ Respond with only the number (1, 2, or 3) that corresponds to the most appropria
 )
 
 prompt_library.add_prompt(
+    "weeki_disect_and_categorize",
+    """You will be provided with a journal note as input. Your task is to analyze this text, identify its topics, restructure it into blocks based on those topics, and categorize each block. Here is the journal note:
+<journal_note>
+{content}
+</journal_note>
+Follow these steps to complete the task:
+
+Carefully read through the journal note and identify the main topics (events, experiences, or issues) discussed in the text.
+Create blocks of text by grouping together sentences or paragraphs that belong to the same topic. Do not change the content or wording of the original text.
+For each block, determine which of the following categories it best fits into:
+1 - productive: Text about work, tasks, goals, or productivity-related topics, also household activities
+2 - myself: Text focused on personal experiences, thoughts, or self-reflection, doesn't involve other people
+3 - social: Text related to social interactions, relationships, or community activities involving other people
+At the start of each block, insert "|#|" followed by the category number (without quotation marks). For example: "|#|2" for a block categorized as "myself".
+Place the "|#|" and category number immediately before the text of each block, without any additional spaces or line breaks.
+Do not use additional dividers between blocks. The "|#|" and category number at the start of each block will serve as the separator.
+Do not add any titles, topic names, or other comments to your output.
+If you identify only one topic in the entire journal note, categorize it and return the input text with only "|#|" followed by the category number at the beginning.
+Ensure that all of the original text is included in your output, just reorganized into topic-based blocks when applicable.
+Do not include any explanations or meta-commentary about your process or the topics you've identified.
+
+Provide your final output below, following the instructions above:""",
+    "Analyze a journal note and categorize each block based on its topics")
+
+prompt_library.add_prompt(
     "summarize",
     "Summarize the following text in {word_count} words: {content}",
     "Summarize a given text in a specified number of words")

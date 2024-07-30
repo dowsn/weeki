@@ -25,4 +25,10 @@ urlpatterns = [
     path('year/<int:year>', views.year_view, name='year_with_year'),
     path('extra/', views.extra_view, name='extra'),
     path('social/', views.social_view, name='social'),
+    path('extra/profile_settings/',
+         views.profile_settings,
+         name='profile_settings'),
+    path('extra/app_settings/', views.app_settings, name='app_settings'),
+    path('rec', views.rec, name='rec'),
+    path('transcribe/', views.transcribe, name='transcribe'),
 ]

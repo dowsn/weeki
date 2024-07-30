@@ -1,0 +1,83 @@
+{% extends 'base_layout.html' %}
+
+{% block content %}
+  <button id="recordButton">Start Recording</button>
+  <div id="transcription"></div>
+
+  <script>
+      const recordButton = document.getElementById('recordButton');
+      let recording = false;
+      let socket = null;
+      let mediaRecorder = null;
+
+      recordButton.addEventListener('click', () => {
+          if (!recording) {
+              startRecording();
+          } else {
+              stopRecording();
+          }
+      });
+
+      function startRecording() {
+          recording = true;
+          recordButton.textContent = 'Stop Recording';
+
+          const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+          const wsUrl = protocol + window.location.host + '/ws/transcribe/';
+          console.log('Attempting to connect to WebSocket:', wsUrl);
+
+          socket = new WebSocket(wsUrl);
+
+          socket.onopen = function() {
+              console.log('WebSocket connection opened.');
+              navigator.mediaDevices.getUserMedia({ audio: true })
+                  .then(stream => {
+                      mediaRecorder = new MediaRecorder(stream);
+
+                      mediaRecorder.ondataavailable = function(e) {
+                          if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+                              const reader = new FileReader();
+                              reader.readAsDataURL(e.data);
+                              reader.onloadend = function() {
+                                  const base64data = reader.result.split(',')[1];
+                                  socket.send(JSON.stringify({ 'audio': base64data }));
+                              };
+                          }
+                      };
+
+                      mediaRecorder.start(250);
+                  })
+                  .catch(error => {
+                      console.error('Error accessing microphone:', error);
+                  });
+          };
+
+          socket.onmessage = function(event) {
+              const data = JSON.parse(event.data);
+              document.getElementById('transcription').innerText = data.message;
+          };
+
+          socket.onclose = function(event) {
+              console.log('WebSocket connection closed:', event);
+              recording = false;
+              recordButton.textContent = 'Start Recording';
+          };
+
+          socket.onerror = function(error) {
+              console.error('WebSocket error:', error);
+          };
+      }
+
+      function stopRecording() {
+          recording = false;
+          recordButton.textContent = 'Start Recording';
+          if (mediaRecorder) {
+              mediaRecorder.stop();
+              mediaRecorder.stream.getTracks().forEach(track => track.stop());
+          }
+          if (socket && socket.readyState === WebSocket.OPEN) {
+              socket.close();
+          }
+      }
+  </script>
+{% endblock %}

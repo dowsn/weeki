@@ -7,16 +7,14 @@ version = "0.1.0"
 [tool.poetry.dependencies]
 Django = "^5.0"
 python = "^3.10"
-pillow = "10.3.0"
 xhtml2pdf = "0.2.15"
-jinja2 = "3.1.4"
 humanize = "4.9.0"
 pyaudio = "0.2.14"
 pyaudio-wheels = "0.0.1"
-whisper = "^1.0.0"
-torch = "^1.11.0"
 psycopg2-binary = "2.9.9"
 dj-database-url = "2.2.0"
+channels = "4.1.0"
+deepgram-sdk = "3.4.0"
 [tool.poetry.dev-dependencies]
 
 [tool.pyright]

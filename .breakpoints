@@ -11,24 +11,24 @@
     "app/models.py": [
       {
         "id": "7876d13f-117c-4f32-bb40-47d24a721eb4",
-        "line": 68,
-        "version": 2506,
-        "index": 1919
+        "line": 96,
+        "version": 2609,
+        "index": 2736
       }
     ],
     "assets/css/style.css": [
       {
         "id": "b09031cf-98d9-4f22-8e4f-a2b318626c01",
-        "line": 179,
-        "version": 1048,
-        "index": 3080
+        "line": 226,
+        "version": 1601,
+        "index": 3698
       }
     ],
     "templates/homepage.html": [
       {
         "id": "4de09243-328b-49b0-b784-c1edc1b36a2e",
         "line": 5,
-        "version": 473,
+        "version": 491,
         "index": 63
       }
     ]

@@ -4,6 +4,16 @@ from django.urls import resolve
 register = template.Library()
 
 
+@register.filter
+def replace_spaces_and_decimals(value):
+  return str(value).replace(',', '').replace('.', '').replace(' ', '')
+
+
+@register.filter
+def replace_comma_with_dot(value):
+  return str(value).replace(',', '.')
+
+
 @register.simple_tag(takes_context=True)
 def active(context, *words):
   request = context['request']

@@ -27,21 +27,23 @@
   <!-- view scripts -->
   {% if app %}
 
-  <script src='{% static "js/year.js" %}'></script>
-  <script src='{% static "js/week.js" %}'></script>
-  <script src='{% static "js/weeki.js" %}'></script>
+
+
+  
 
 
   {% endif %}
   <!-- styles -->
   <link rel="stylesheet" href='{% static "css/style.css" %}'>
+  <link rel="stylesheet" href='{% static "css/mobile.css" %}'>
+
+
+  <link rel="stylesheet" href='{% static "css/button.css" %}'>
+
 
   {% if app %}
 
   <!-- view styles -->
-  <link rel="stylesheet" href='{% static "css/year.css" %}'>
-  <link rel="stylesheet" href='{% static "css/week.css" %}'>
-  <link rel="stylesheet" href='{% static "css/weeki.css" %}'>
 
 
   
@@ -60,46 +62,16 @@
 </head>
 <body>
   {% csrf_token %}
-  <header class="wrapper">
+  <header>
 
     {% if app %}
-    <br>
-    <br>
-    <br>
-    <br>
-    <br>
-    <br>
+ 
     {% else %}
   <nav>
     <div class="mainLogo">
 
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5990 1433">
-        <defs>
-          <style>
-            @font-face {
-              font-family: 'VarelaRound';
-              src: url('{% static "fonts/VarelaRound-Regular.ttf" %}') format('truetype');
-              font-weight: normal;
-              font-style: normal;
-            }
-          </style>
-        </defs>
+      <img src="{% static 'images/logos/weeki_logo_text.svg' %}" alt="Weeki Logo">
 
-        <!-- White background -->
-        <rect x="0" y="0" width="5590" height="1433" fill="white"/>
-
-        <!-- Original icon -->
-        <g transform="translate(0, 0)">
-          <rect x="0" y="0" width="1433" height="1433" rx="287" ry="287" fill="#2C2C2C"/>
-          <rect x="143" y="71" width="315" height="1291" rx="157.5" ry="157.5" fill="#00D448"/>
-          <rect x="558" y="487" width="315" height="875" rx="157.5" ry="157.5" fill="#8F00FF"/>
-          <circle cx="716" cy="230" r="157.5" fill="white"/>
-          <rect x="974" y="71" width="315" height="1291" rx="157.5" ry="157.5" fill="#FDB600"/>
-        </g>
-
-        <!-- Text "weeki" -->
-        <text x="1533" y="805" font-family="VarelaRound, Arial, sans-serif" font-size="1600" fill="#2C2C2C" dominant-baseline="middle">weeki</text>
-      </svg>
       
     </div>
 
@@ -109,8 +81,6 @@
       
     {% include 'app_navbar.html' %}
  
-
-
 
     {% else %}
 
@@ -128,8 +98,8 @@
   {% endblock %}
   
   </div>
-  {% if app %}
+  <!-- {% if app %}
       {% include 'app_footer.html' %}
-  {% endif %}
+  {% endif %} -->
 </body>
 </html>

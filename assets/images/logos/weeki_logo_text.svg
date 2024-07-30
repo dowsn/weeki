@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5990 1433">
+  <defs>
+    <style>
+      @font-face {
+        font-family: 'VarelaRound';
+        src: url('VarelaRound-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+  </defs>
+  <!-- White background -->
+  <rect x="0" y="0" width="5590" height="1433" fill="white"/>
+  <!-- Original icon -->
+  <g transform="translate(0, 0)">
+    <rect x="0" y="0" width="1433" height="1433" rx="287" ry="287" fill="#2C2C2C"/>
+    <rect x="143" y="71" width="315" height="1291" rx="157.5" ry="157.5" fill="#00D448"/>
+    <rect x="558" y="487" width="315" height="875" rx="157.5" ry="157.5" fill="#8F00FF"/>
+    <circle cx="716" cy="230" r="157.5" fill="white"/>
+    <rect x="974" y="71" width="315" height="1291" rx="157.5" ry="157.5" fill="#FDB600"/>
+  </g>
+  <!-- Text "weeki" -->
+  <text x="1533" y="805" font-family="VarelaRound, Arial, sans-serif" font-size="1600" fill="#2C2C2C" dominant-baseline="middle">weeki</text>
+</svg>

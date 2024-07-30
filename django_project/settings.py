@@ -30,6 +30,20 @@ SITE_URL = os.getenv('SITE_URL')
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 
+ASGI_APPLICATION = 'django_project.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    },
+}
+
+DATETIME_FORMAT = '%d. %B %H:%M'
+
+USE_L10N = True
+DATETIME_FORMAT = '%d. %B %H:%M'
+USE_THOUSAND_SEPARATOR = True
+
 SECRET_KEY = 'django-insecure-4ju2n@$f9d0c=h)_g0lbb%k9&@rf(xa$d$g$&5ri$uf)*gev^4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -40,7 +54,10 @@ CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
 
 # Application definition, componenets of the project
 
+DEEPGRAM_API_KEY = '4248298573ea7e694589872c3848a650e1e450f9'
+
 INSTALLED_APPS = [
+    'channels',
     # create superuser by
     'django.contrib.admin',
     'django.contrib.auth',
@@ -73,7 +90,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'app.middleware.AppMiddleWare', 'app.middleware.AppLoginRequiredMiddleware'
+    'app.middleware.ProfileLanguageMiddleware',
+    'app.middleware.AppLoginRequiredMiddleware'
 ]
 
 REST_FRAMEWORK = {
@@ -290,7 +308,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'CET'
 
 USE_I18N = True
 

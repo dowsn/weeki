@@ -21,7 +21,19 @@ def calculate_life_percentage(birth_date, final_age):
 
 
 def fetch_years(year_of_birth, final_age):
-  return list(range(int(year_of_birth), int(year_of_birth + final_age + 1)))
+  return list(
+      reversed(range(int(year_of_birth), int(year_of_birth + final_age + 1))))
+
+
+def fetch_current_years(year_of_birth):
+  current_year = int(date.today().year)
+  years = list(reversed(range(int(year_of_birth), current_year + 1)))
+  max_index = len(years) - 1
+
+  return [{
+      'value': year,
+      'index': max_index - i
+  } for i, year in enumerate(years)]
 
 
 def get_year(year, user_id):
@@ -47,10 +59,10 @@ def get_year(year, user_id):
         if any(w for w in week.user_weekis if w.category_id == category.id)
     ]
     response[week_value]['week_colors'] = color_array
-    response[week_value]['start_date'] = week.date_start.isoformat(
-    ) if week.date_start else None
-    response[week_value]['end_date'] = week.date_end.isoformat(
-    ) if week.date_end else None
+    response[week_value]['start_date'] = week.date_start.strftime(
+        '%-d. %-m.') if week.date_start else None
+    response[week_value]['end_date'] = week.date_end.strftime(
+        '%-d. %-m.') if week.date_end else None
 
     print(f"Week {week_value}: start={week.date_start}, end={week.date_end}"
           )  # Debug print
@@ -92,8 +104,7 @@ def get_week(week_id, user_id):
             {
                 'id': weeki.id,
                 'content': weeki.content,
-                'date_created':
-                weeki.date_created.strftime('%Y-%m-%d %H:%M:%S'),
+                'date_created': weeki.date_created,
                 # Add other weeki fields as needed
             } for weeki in category.filtered_weekis
         ]

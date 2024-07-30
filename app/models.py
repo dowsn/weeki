@@ -15,8 +15,36 @@ class Theme(models.Model):
 
 class Language(models.Model):
   id = models.AutoField(primary_key=True)
+  code = models.CharField(max_length=5, unique=True, default="en")
   name = models.CharField(max_length=100)
-  short = models.CharField(max_length=100)
+  locale = models.CharField(max_length=100)
+
+  def __str__(self):
+    return str(self.name)
+
+
+class Translation(models.Model):
+  key = models.CharField(max_length=100)
+  language = models.ForeignKey(Language,
+                               on_delete=models.CASCADE,
+                               related_name='translations')
+  value = models.TextField()
+
+  class Meta:
+    unique_together = ['key', 'language']
+    indexes = [
+        models.Index(fields=['key', 'language']),
+    ]
+
+  def __str__(self):
+    return f"{self.key} - {self.language.name}"
+
+  @classmethod
+  def get_translation(cls, key, language_code):
+    try:
+      return cls.objects.get(key=key, language__code=language_code).value
+    except cls.DoesNotExist:
+      return key  # Return the key if translation is not found
 
 
 class Profile(models.Model):

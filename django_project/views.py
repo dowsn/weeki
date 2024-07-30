@@ -12,3 +12,6 @@ def index(request):
 
 def about(request):
   return render(request, "about.html", {})
+
+def rec(request):
+  return render(request, "rec.html", {})

@@ -8,6 +8,11 @@
   justify-content: center;
 }
 
+.quartalLabel {
+  font-size: var(--big-font-size);
+  cursor: default !important
+}
+
 .yearList {
   list-style-type: none;
   padding: 0;
@@ -56,8 +61,8 @@
   text-align: center;
   cursor: pointer;
   vertical-align: middle;
-  font-size: 12px; /* Slightly increased font size */
-}
+  /* font-size: 12px; /* Slightly increased font size */
+} 
 /* Styling for cells with values */
 .table td[value] {
   border: 2px solid black;
@@ -93,16 +98,68 @@ td:empty {
   cursor: default;
 }
 
-@keyframes blink-border {
+@keyframes blink-background {
   0%, 100% {
-    border-color: transparent;
+    opacity: 0.3; /* Changed from 0 to 0.3 for better visibility */
   }
   50% {
-    border-color: black; /* You can change this to any color you prefer */
+    opacity: 1;
   }
 }
 
-td:has(.currentWeek) {
-  animation: blink-border 1s linear infinite;
-  border: 2px solid transparent;
+td:has(.currentWeek) .weekiColorElement {
+   animation: blink-background 1.5s linear infinite;
 }
+
+.table td[value] {
+  position: relative;
+  border: none;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+/* Styling for the value in the upper right corner */
+.table td[value]::after,
+.table td[start]::before {
+  position: absolute;
+  font-size: 12px;
+  padding: 1px 3px;
+  border-radius: 20px;
+}
+
+.table td[value]::after {
+  content: attr(value);
+  top: -4px;
+  right: -4px;
+  background-color: rgba(255, 255, 255, 1);
+  color: black;
+}
+
+.table td[start]::before {
+  content: attr(start);
+  color: white; /* Ensure contrast with background */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%; /* Added to center horizontally */
+  z-index: 1; /* Ensure the text is above the blinking background */
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5); /* Add a slight shadow for better visibility */
+}
+
+.table td:not(:has(.weekiColors))::before,
+.table td:not(:has(.weekiColors))::after {
+  display: none;
+}
+
+td:has(.currentWeek) .weekiColorElement::before {
+  content: attr(start);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: black;
+  z-index: 2;
+  width: 100%;
+  text-align: center;
+}
+

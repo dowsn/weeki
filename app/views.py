@@ -6,6 +6,11 @@ from api.ai.anthropic import AnthropicAPIUtility
 from api.ai.prompts import prompt_library, PromptTemplate
 from api.services import calculate_life_percentage
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from deepgram import Deepgram
+from django.conf import settings
+
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
@@ -17,7 +22,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 import json
 from .utils import log_error
-from .models import Weeki, Profile, Week, Year, Category
+from .models import Weeki, Profile, Week, Year, Category, Translation
 from django.contrib.auth import login, logout
 from django.http import HttpResponse
 from django.template.loader import get_template
@@ -33,11 +38,27 @@ from django.http import JsonResponse
 
 from datetime import datetime
 
-from api.services import get_year, get_week, fetch_years
+from api.services import get_year, get_week, fetch_years, fetch_current_years
+
+import json
+from django.http import StreamingHttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from deepgram import (
+    DeepgramClient,
+    LiveTranscriptionEvents,
+    LiveOptions,
+)
 
 
 def index(request):
   return redirect('app:week')
+
+
+def rec(request):
+  return render(request, 'x.html')
 
 
 class NewWeekiView(View):
@@ -75,29 +96,46 @@ class NewWeekiView(View):
             "content": content,
         }
 
-        category_id = api_utility.make_api_call("weeki_category", placeholders)
-        # Make API call to Anthropic for categorization
+        print("kontis")
 
-        category = get_object_or_404(Category, pk=category_id)
+        print(content)
+
+        response = api_utility.make_api_call("weeki_disect_and_categorize",
+                                             placeholders)
+
+        response_messages = response.split('|#|')
+
         week = get_object_or_404(Week, pk=week_id)
 
-        # Process the form data and save to database
-        # This is a placeholder - replace with actual database operations
-        new_weeki = {
-            'user': request.user,
-            'content': content,
-            'week': week,
-            'category': category
-        }
-        # Save new_weeki to database here
-        Weeki.objects.create(**new_weeki)
+        for response_message in response_messages:
+
+          response_stripped = response_message.strip()
+
+          if response_stripped:
+
+            category_id = int(response_stripped.strip()[0])
+
+            category = get_object_or_404(Category, pk=category_id)
+            content_stripped = response_stripped.strip()[1:]
+
+            new_weeki = {
+                'user': request.user,
+                'content': content_stripped,
+                'week': week,
+                'category': category
+            }
+
+            Weeki.objects.create(**new_weeki)
+      # S
+
+      # Make API call to Anthropic for categorization
+
+      # Process the form data and save to database
+      # This is a placeholder - replace with actual database operations
 
         if weekID is None:
           return redirect(reverse('app:week'))
         else:
-
-          print(week.year.value)
-          print(week.value)
           return redirect('app:week_with_year_and_week',
                           year=week.year.value,
                           week=week.value)
@@ -115,6 +153,46 @@ class NewWeekiView(View):
 
 def get_week_of_year(d):
   return (d - date(d.year, 1, 1)).days // 7 + 1
+
+
+@csrf_exempt
+def transcribe(request):
+  if request.method == 'POST':
+    audio_data = request.body
+
+    async def process_audio():
+      try:
+        deepgram = DeepgramClient(settings.DEEPGRAM_API_KEY)
+        dg_connection = deepgram.listen.live.v("1")
+
+        async def on_message(result, **kwargs):
+          sentence = result.channel.alternatives[0].transcript
+          if sentence:
+            yield f"data: {sentence}\n\n"
+
+        dg_connection.on(LiveTranscriptionEvents.Transcript, on_message)
+
+        options = LiveOptions(
+            model="nova-2",
+            language="en-US",
+            smart_format=True,
+        )
+
+        await dg_connection.start(options)
+        await dg_connection.send(audio_data)
+        await dg_connection.finish()
+
+      except Exception as e:
+        yield f"data: Error: {str(e)}\n\n"
+
+    return StreamingHttpResponse(streaming_content=process_audio(),
+                                 content_type='text/event-stream')
+
+  return JsonResponse({'error': 'Invalid request method'})
+
+
+def recording(request):
+  return render(request, 'transcripe.html')
 
 
 def memento_mori(request):
@@ -174,7 +252,7 @@ class EditWeekiView(View):
   def get(self, request, weeki_id):
     weeki = get_object_or_404(Weeki, pk=weeki_id, user=request.user)
     form = EditWeekiForm(instance=weeki)
-    categories = Category.objects.all()[::-1]
+    categories = Category.objects.all().order_by('-id')
     context = {'form': form, 'weeki': weeki, 'categories': categories}
     return render(request, self.template_name, context)
 
@@ -195,7 +273,7 @@ class EditWeekiView(View):
       except Exception as e:
         messages.error(request, f"Error updating Weeki: {str(e)}")
 
-    categories = Category.objects.all()
+    categories = Category.objects.all().order_by('-id')
     context = {'form': form, 'weeki': weeki, 'categories': categories}
     return render(request, self.template_name, context)
 
@@ -217,7 +295,7 @@ def year_view(request, year=None):
   year_of_birth = profile.date_of_birth.year
   final_age = profile.final_age
 
-  years = fetch_years(year_of_birth, final_age)
+  years = fetch_current_years(year_of_birth)
 
   context = {
       'years': years,
@@ -231,6 +309,8 @@ def year_view(request, year=None):
 
 def week_view(request, year=None, week=None):
   current_date = timezone.now().date()
+
+  t_week = Translation.get_translation("week", request.language_code)
 
   if year is None or week is None:
     weekObject = Week.objects.filter(date_start__lte=current_date,
@@ -248,12 +328,18 @@ def week_view(request, year=None, week=None):
       return redirect('app:week')
 
   categories_with_weekis = get_week(weekObject.id, request.user.id)
+
   weeks = Week.objects.filter(year__value=weekObject.year.value)
+
+  if weekObject.year.value == current_date.year:
+    weeks = list(weeks.filter(date_start__lte=current_date))[::-1]
+
   selected_week = weekObject.id
   context = {
       'week': weekObject,
       'weeks': weeks,
       'year': year,
+      't_week': t_week,
       'selected_week': selected_week,
       'categories_with_weekis': categories_with_weekis
   }
@@ -342,6 +428,36 @@ def extra_view(request):
 
 def social_view(request):
   return render(request, 'social/social.html')
+
+
+def profile_settings(request):
+  profile = request.profile
+  user = request.user
+  if request.method == 'POST':
+    form = ProfileForm(request.POST, instance=profile)
+    if form.is_valid():
+      form.save()
+      messages.success(request, 'Profile updated successfully.')
+      return redirect('app:profile_settings')
+  else:
+    form = ProfileForm(instance=profile)
+  context = {'form': form}
+  return render(request, 'extra/profile_settings.html', context)
+
+
+def app_settings(request):
+  profile = request.profile
+  user = request.user
+  if request.method == 'POST':
+    form = AppSettingsForm(request.POST, instance=profile)
+    if form.is_valid():
+      form.save()
+      messages.success(request, 'App Settings updated successfully.')
+      return redirect('app:app_settings')
+  else:
+    form = AppSettingsForm(instance=profile)
+  context = {'form': form}
+  return render(request, 'extra/app_settings.html', context)
 
 
 def weeki_pdf(request):

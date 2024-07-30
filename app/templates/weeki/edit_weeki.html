@@ -1,6 +1,10 @@
 {% extends 'base_layout.html' %}
 
+{% load static %}
 {% block content %}
+<script src='{% static "js/weeki.js" %}'></script>
+<link rel="stylesheet" href='{% static "css/weeki.css" %}'>
+
 <h2>Edit Weeki</h2>
 <form method="post" id="editWeekiForm">
     {% csrf_token %}

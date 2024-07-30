@@ -8,11 +8,12 @@ class NewWeekiForm(forms.Form):
   content = forms.CharField(
       widget=forms.Textarea(
           attrs={
-              'rows': 2,
-              'cols': 50,
-              'maxlength': 140,
+              'rows': 10,
+              'cols': 150,
+              'maxlength': 2500,
               'placeholder': 'Your experience found its playground...',
-              'class': 'form-control',  # Optional: for Bootstrap styling
+              'class':
+              'form-control newWeekiText',  # Optional: for Bootstrap styling
           }),
       label='',  # This removes the label
   )
@@ -32,9 +33,10 @@ class EditWeekiForm(forms.ModelForm):
           }),
       label='',  # Remove label
   )
-  category = forms.ModelChoiceField(queryset=Category.objects.all(),
-                                    widget=forms.HiddenInput(),
-                                    required=True)
+  category = forms.ModelChoiceField(
+      queryset=Category.objects.all().order_by('-id'),
+      widget=forms.HiddenInput(),
+      required=True)
 
   class Meta:
     model = Weeki

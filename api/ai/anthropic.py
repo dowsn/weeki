@@ -78,6 +78,10 @@ class AnthropicAPIUtility:
     # Prepare the prompt
     prepared_prompt = self.prepare_prompt(prompt, placeholders)
 
+
+
+    print(prepared_prompt)
+
     # Prepare the API call parameters
     api_params = {
         "model": model,

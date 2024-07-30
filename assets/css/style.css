@@ -2,11 +2,52 @@
   --productive: #FDB600;
   --social: #8F00FF;
   --myself: #00D448;
-  --dark: #18191A;
+
+  
+  --dark: #131A39;
   --gray: #6C6C6C;
-  --light: #F2F2F2;
+  --light: #FFE5AD;
+  --
+;
+
+  --main: #FFE5AD;
+  --main-lightest: #FFF9EB;
+  --main-darker: #FFC547;
+  --main-darkest: #CC8B00;
+
+
+
+  --normal-font-size: 10px;
+  --big-font-size: 40px;
 }
 
+* {
+  color: var(--dark);
+}
+
+a {
+  text-decoration: none !important;
+}
+
+.wrapper {
+  margin: auto;
+  margin-top: 140px;
+  height: 100%;
+  width: 95%;
+  margin-bottom: 100px;
+  
+}
+
+.selectorContainer {
+  display: flex;
+  justify-content: center;
+}    
+
+.middleButton {
+  display: flex;
+  justify-content: center;
+  margin: auto;
+}
 /* video */
 .video-wrapper {
   position: relative;
@@ -30,6 +71,10 @@
   font-size: 30px;
   line-height: 1.2;
   text-align: right;
+}
+
+select {
+  background: var(--main-lightest)
 }
 
 .text-myself {
@@ -76,7 +121,7 @@
   fill: var(--light); /* Color on hover */
 }
 .menu-item.active .svg-fill {
-  fill: white; /* Color when active */
+  fill: var(--main-lightest); /* Color when active */
 }
 
 .menu-item {
@@ -122,8 +167,10 @@
   font-style: normal;
 }
 
-html, body {
+html, body, .wrapper {
   font-family: 'Varela', sans-serif;
+  background: var(--main);
+  color: var(--ink);
 }
 
 * {
@@ -279,7 +326,6 @@ header{
 
 div.wrapper h1{
   text-align: center;
-  margin: 100px auto;
   font-size: 2.4em;
 }
 

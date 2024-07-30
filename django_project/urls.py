@@ -30,6 +30,7 @@ urlpatterns = [
     # if request.user.is_authenticated else
     path("", views.index, name="home"),
     path("about", views.about, name="about"),
+    path('rec', views.rec, name='rec'),
     # path("create", views.article_list)
     path("blog/", include('blog.urls')),
     path('accounts/', include('accounts.urls')),

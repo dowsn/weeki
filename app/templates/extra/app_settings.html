@@ -6,9 +6,6 @@
 
 {% if user.is_authenticated %}
 
-{% load custom_tags %}
-
-
 <link rel="stylesheet" href='{% static "css/extra.css" %}'>
 
 
@@ -16,7 +13,7 @@
 <a href="{% url 'app:profile_settings' %}">Profile Settings</a>
 <a href="{% url 'app:app_settings' %}">Settings</a>
 <div class="progress-bar">
-    <span class="progress-bar-fill" style="width: {{ life_percentage |replace_comma_with_dot }}%;">
+    <span class="progress-bar-fill" style="width: {{ life_percentage }}%;">
         {{ life_percentage }}%
     </span>
 </div>
