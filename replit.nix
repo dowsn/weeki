@@ -1,5 +1,8 @@
 { pkgs }: {
   deps = [
+    pkgs.graphicsmagick-imagemagick-compat
+    pkgs.openssl
+    pkgs.python311Packages.daphne
     pkgs.postgresql
     pkgs.postgresql_16_jit
     pkgs.sqlite-interactive

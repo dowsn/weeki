@@ -55,7 +55,7 @@ def get_year(year, user_id):
       response[week_value] = {}
 
     color_array = [
-        category.default_color for category in categories
+        category.color for category in categories
         if any(w for w in week.user_weekis if w.category_id == category.id)
     ]
     response[week_value]['week_colors'] = color_array
@@ -96,13 +96,14 @@ def get_week(week_id, user_id):
     category_data = {
         'id':
         category.id,
-        'default_color':
-        category.default_color,
+        'color':
+        category.color,
         'name':
         category.name,
         'weekis': [
             {
                 'id': weeki.id,
+                'favorite': weeki.favorite,
                 'content': weeki.content,
                 'date_created': weeki.date_created,
                 # Add other weeki fields as needed

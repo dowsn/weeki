@@ -1,53 +1,148 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat</title>
-    </head>
-    <body>
-        <h1>Transcribe Audio With Django</h1>
-        <p id="status">Connection status will go here</p>
-        <p id="transcript"></p>
-       
-        <script>
-           navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-            if (!MediaRecorder.isTypeSupported('audio/webm'))
-                return alert('Browser not supported')
+<style>
+        #status {
+            margin-bottom: 20px;
+        }
+        #transcriptContainer {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        #recordButton {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #recordButton.recording {
+            background-color: #f44336;
+        }
+        .interim {
+            color: gray;
+            font-style: italic;
+        }
+    </style>
 
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm',
-            })
+    <div id="transcriptContainer"></div>
+    <button id="recordButton"><i class="fas fa-microphone"></i></button>
 
-            const socket = new WebSocket('wss://601caa67-8426-4032-a919-d2f6227a5865-00-1xpunr8l2i4gj.janeway.replit.dev/listen')
+    <script>
+        const transcriptContainer = document.getElementById('transcriptContainer');
+        const statusP = document.getElementById('status');
+        const recordButton = document.getElementById('recordButton');
+        let fullTranscript = [];
+        let interimTranscript = '';
+        let mediaRecorder;
+        let socket;
+        let isRecording = false;
+        let stream;
+
+        function updateTranscriptDisplay() {
+            let displayText = fullTranscript.join(' ');
+            if (interimTranscript) {
+                displayText += ' <span class="interim">' + interimTranscript + '</span>';
+            }
+            transcriptContainer.innerHTML = displayText;
+            transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+        }
+
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm',
+                });
+
+                mediaRecorder.addEventListener('dataavailable', async (event) => {
+                    if (event.data.size > 0 && socket && socket.readyState === WebSocket.OPEN && isRecording) {
+                        socket.send(event.data);
+                    }
+                });
+
+                mediaRecorder.start(250);
+                recordButton.innerHTML = '<i class="fas fa-stop"></i>';
+                recordButton.classList.add('recording');
+                isRecording = true;
+                socket.send(JSON.stringify({action: 'start'}));
+            } catch (err) {
+                console.error("Error accessing the microphone:", err);
+                alert("Error accessing the microphone. Please ensure you have given permission.");
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            recordButton.innerHTML = '<i class="fas fa-microphone"></i>';
+            recordButton.classList.remove('recording');
+            isRecording = false;
+            socket.send(JSON.stringify({action: 'stop'}));
+        }
+
+        function initializeWebSocket() {
+            const host = window.location.hostname;
+            socket = new WebSocket('wss://' + host + '/listen');
 
             socket.onopen = () => {
-                document.querySelector('#status').textContent = 'Connected'
-                console.log({ event: 'onopen' })
-                mediaRecorder.addEventListener('dataavailable', async (event) => {
-                    if (event.data.size > 0 && socket.readyState == 1) {
-                        socket.send(event.data)
-                    }
-            })
-            mediaRecorder.start(250)
+                statusP.textContent = 'Connected';
+                console.log({event: 'onopen'});
+                recordButton.disabled = false;
             }
 
             socket.onmessage = (message) => {
-                const received = message.data
-                if (received) {
-                    console.log(received)
-                    document.querySelector('#transcript').textContent += ' ' + received
+                const received = JSON.parse(message.data);
+                if (received.transcript) {
+                    console.log(received.transcript, received.is_final);
+                    if (received.is_final) {
+                        fullTranscript.push(received.transcript);
+                        interimTranscript = '';
+                    } else {
+                        interimTranscript = received.transcript;
+                    }
+                    updateTranscriptDisplay();
                 }
-           }
-
-           socket.onclose = () => {
-            console.log({ event: 'onclose' })
-        }
-
-            socket.onerror = (error) => {
-                console.log({ event: 'onerror', error })
             }
 
-           })
+            socket.onclose = () => {
+                statusP.textContent = 'Disconnected';
+                console.log({event: 'onclose'});
+                recordButton.disabled = true;
+                // Attempt to reconnect after a short delay
+                setTimeout(initializeWebSocket, 3000);
+            }
 
-        </script>
-    </body>
+            socket.onerror = (error) => {
+                statusP.textContent = 'Error: ' + error;
+                console.log({event: 'onerror', error});
+            }
+        }
+
+        initializeWebSocket();
+        recordButton.addEventListener('click', toggleRecording);
+    </script>
+</body>
 </html>

@@ -11,9 +11,103 @@
 
 <link rel="stylesheet" href='{% static "css/extra.css" %}'>
 
+<style>
+    .dot {
+        fill: var(--dark);
+    }
+    .cross {
+        stroke: var(--dark);
+        stroke-width: 2;
+    }
+    .connection {
+        stroke: var(--dark);
+        stroke-width: 1;
+        stroke-dasharray: 4 4;
+        fill: none;
+    }
+  
+    text {
+        font-size: 12px;
+        fill: var(--dark);
+    }
+    #mapSvg {
+        background-color: var(--main)
+    }
+</style>
+
+
+<svg id="mapSvg" width="400" height="400" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<script>
+    const years = {{ years | safe }};
+    const points = years / 10 + 1;
+    const current
+  
+  
+    function createCurvedPath(totalPoints, filledPoints) {
+        const svg = document.getElementById('mapSvg');
+        const pathWidth = 400;
+        const pathHeight = 350;
+
+       
+        const points = 13; // 0 to 120, inclusive
+
+        // Generate path points
+        let pathPoints = [];
+        for (let i = 0; i < points; i++) {
+            const x = i * (pathWidth / (points - 1));
+            const y = pathHeight / 2 + Math.sin(i / (points - 1) * Math.PI * 2) * pathHeight * 0.3;
+            pathPoints.push({x, y});
+        }
+
+        // Create curved path
+        let pathD = `M${pathPoints[0].x},${pathPoints[0].y}`;
+        for (let i = 1; i < pathPoints.length; i++) {
+            const prevPoint = pathPoints[i - 1];
+            const currentPoint = pathPoints[i];
+            const midX = (prevPoint.x + currentPoint.x) / 2;
+            pathD += ` Q${midX},${prevPoint.y} ${currentPoint.x},${currentPoint.y}`;
+        }
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathD);
+        path.setAttribute("class", "connection");
+        svg.appendChild(path);
+
+        // Add dots
+        pathPoints.forEach((point, i) => {
+            const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            dot.setAttribute("cx", point.x);
+            dot.setAttribute("cy", point.y);
+            dot.setAttribute("r", 3);
+            dot.setAttribute("class", `dot ${i * 10 <= filledPoints ? 'filled' : ''}`);
+            svg.appendChild(dot);
+        });
+
+        // Add crosses and labels
+        pathPoints.forEach((point, i) => {
+            if (i > 0) {
+                const cross = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                cross.setAttribute("d", `M${point.x-5},${point.y-5} L${point.x+5},${point.y+5} M${point.x-5},${point.y+5} L${point.x+5},${point.y-5}`);
+                cross.setAttribute("class", "cross");
+                svg.appendChild(cross);
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", point.x);
+                text.setAttribute("y", point.y + 20);
+                text.setAttribute("text-anchor", "middle");
+                text.textContent = i * 10;
+                svg.appendChild(text);
+            }
+        });
+    }
+
+    // Usage: createCurvedPath(totalPoints, filledPoints)
+    createCurvedPath(120, 70);
+</script>
+
 
 <h1>{{ user.username }}</h1>
-<a href="{% url 'app:profile_settings' %}">Profile Settings</a>
 <a href="{% url 'app:app_settings' %}">Settings</a>
 <div class="progress-bar">
     <span class="progress-bar-fill" style="width: {{ life_percentage |replace_comma_with_dot }}%;">
@@ -28,6 +122,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
     </svg>
 </a>
+
 
 <br>
 <br>

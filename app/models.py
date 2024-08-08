@@ -3,14 +3,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-
-
-class Theme(models.Model):
-  name = models.CharField(max_length=100)
-  color = models.CharField(max_length=100)
-
-  def __str__(self):
-    return str(self.name)
+from django.conf import settings
 
 
 class Language(models.Model):
@@ -55,15 +48,18 @@ class Profile(models.Model):
   profile_pic = models.ImageField(upload_to='profile_pics', blank=True)
   date_of_birth = models.DateField(default='2000-01-01')
   final_age = models.IntegerField(default=2050)
-  premium = models.BooleanField(default=False)
-  theme = models.ForeignKey(Theme,
-                            on_delete=models.CASCADE,
-                            blank=True,
-                            null=True)
+  premium_date = models.DateField(default=timezone.now() +
+                                  timezone.timedelta(days=7))
+  sorting_descending = models.BooleanField(default=True)
   language = models.ForeignKey(Language,
                                on_delete=models.CASCADE,
                                blank=True,
                                null=True)
+  display_week_categories = models.BooleanField(default=True)
+  reminder_day = models.IntegerField(default=1)
+  reminder_time = models.TimeField(default='00:00:00')
+  ai_on = models.BooleanField(default=True)
+  session_minutes = models.IntegerField(default=30)
 
   def __str__(self):
     return str(self.user)
@@ -108,22 +104,30 @@ class Week(models.Model):
     return str(self.date_start) if self.date_start else "Undated week"
 
 
+def get_default_user():
+  return User.objects.get_or_create(
+      id=getattr(settings, 'DEFAULT_CATEGORY_USER_ID', 1))[0].id
+
+
 class Category(models.Model):
   id = models.AutoField(primary_key=True)
   name = models.CharField(max_length=200)
-  default_color = models.CharField(max_length=200)
+  color = models.CharField(max_length=200)
+  description = models.TextField(max_length=500, blank=True)
+  goal = models.TextField(max_length=500, blank=True)
+  summary = models.TextField(max_length=5000, blank=True)
+  user = models.ForeignKey(User,
+                           null=True,
+                           blank=True,
+                           on_delete=models.SET_NULL,
+                           default=1)
+  active = models.BooleanField(default=True)
 
   def __str__(self):
-    return str(self.name) if self.name else "Unnamed category"
+    return self.name
 
-
-class Vision(models.Model):
-  category = models.ForeignKey(Category, on_delete=models.CASCADE)
-  content = models.TextField(max_length=500, blank=True)
-  image = models.ImageField(upload_to='images/', blank=True)
-
-  def __str__(self):
-    return str(self.category.name)
+  class Meta:
+    verbose_name_plural = "Categories"
 
 
 class Weeki(models.Model):
@@ -155,3 +159,19 @@ class ErrorLog(models.Model):
 
   def __str__(self):
     return f"{self.timestamp} - {self.url} - {self.error_message[:50]}"
+
+
+# class Theme(models.Model):
+#   name = models.CharField(max_length=100)
+#   color = models.CharField(max_length=100)
+
+#   def __str__(self):
+#     return str(self.name)
+
+# class Vision(models.Model):
+#   category = models.ForeignKey(Category, on_delete=models.CASCADE)
+#   content = models.TextField(max_length=500, blank=True)
+#   image = models.ImageField(upload_to='images/', blank=True)
+
+#   def __str__(self):
+#     return str(self.category.name)

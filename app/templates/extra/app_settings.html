@@ -9,27 +9,27 @@
 <link rel="stylesheet" href='{% static "css/extra.css" %}'>
 
 
-<h1>{{ user.username }}</h1>
-<a href="{% url 'app:profile_settings' %}">Profile Settings</a>
-<a href="{% url 'app:app_settings' %}">Settings</a>
-<div class="progress-bar">
-    <span class="progress-bar-fill" style="width: {{ life_percentage }}%;">
-        {{ life_percentage }}%
-    </span>
+{% load static %}
+
+<div class="profile-edit-container">
+    <h2>Edit Profile</h2>
+    <form method="post" enctype="multipart/form-data" class="profile-form">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <div class="error-message">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="submit-button">Save Changes</button>
+    </form>
 </div>
-<br>
-
-<a href="{% url 'app:memento_mori' %}" target="_blank" rel="noopener noreferrer" class="external-link-button">
-    memento mori
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-    </svg>
-</a>
-
-<br>
-<br>
-
-<br>
 
 <div class="logout">
     <form method="post" action="{% url 'accounts:logout' %}">

@@ -13,7 +13,6 @@ from django.conf import settings
 
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
-from django.utils.decorators import method_decorator
 from django.views import View
 import anthropic
 from django.urls import reverse
@@ -26,7 +25,7 @@ from .models import Weeki, Profile, Week, Year, Category, Translation
 from django.contrib.auth import login, logout
 from django.http import HttpResponse
 from django.template.loader import get_template
-from xhtml2pdf import pisa
+# from xhtml2pdf import pisa
 from .forms import NewWeekiForm, EditWeekiForm
 from jinja2 import Template
 from collections import defaultdict
@@ -35,6 +34,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.files.storage import default_storage
 from django.conf import settings
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+from django.utils.decorators import method_decorator
 
 from datetime import datetime
 
@@ -83,22 +85,18 @@ class NewWeekiView(View):
   def post(self, request, weekID=None):
     form = NewWeekiForm(request.POST)
     if form.is_valid():
-      content = form.cleaned_data['content']
+      content = request.POST.get('content', '')  # Get content from POST data
+      favorite = request.POST.get('favorite') == 'on'
+
+      # Get favorite from POST data
       week_id = form.cleaned_data['week_id']
 
       try:
-
         api_utility = AnthropicAPIUtility()
-
-        # prompt_template = prompt_library.get_prompt('weeki_category')
 
         placeholders = {
             "content": content,
         }
-
-        print("kontis")
-
-        print(content)
 
         response = api_utility.make_api_call("weeki_disect_and_categorize",
                                              placeholders)
@@ -108,13 +106,10 @@ class NewWeekiView(View):
         week = get_object_or_404(Week, pk=week_id)
 
         for response_message in response_messages:
-
           response_stripped = response_message.strip()
 
           if response_stripped:
-
             category_id = int(response_stripped.strip()[0])
-
             category = get_object_or_404(Category, pk=category_id)
             content_stripped = response_stripped.strip()[1:]
 
@@ -122,16 +117,11 @@ class NewWeekiView(View):
                 'user': request.user,
                 'content': content_stripped,
                 'week': week,
+                'favorite': favorite,
                 'category': category
             }
 
             Weeki.objects.create(**new_weeki)
-      # S
-
-      # Make API call to Anthropic for categorization
-
-      # Process the form data and save to database
-      # This is a placeholder - replace with actual database operations
 
         if weekID is None:
           return redirect(reverse('app:week'))
@@ -148,51 +138,15 @@ class NewWeekiView(View):
         })
         messages.error(request, error_message)
 
+    else:
+      print("Form is invalid")
+      print(form.errors)
+
     return render(request, self.template_name, {'form': form})
 
 
 def get_week_of_year(d):
   return (d - date(d.year, 1, 1)).days // 7 + 1
-
-
-@csrf_exempt
-def transcribe(request):
-  if request.method == 'POST':
-    audio_data = request.body
-
-    async def process_audio():
-      try:
-        deepgram = DeepgramClient(settings.DEEPGRAM_API_KEY)
-        dg_connection = deepgram.listen.live.v("1")
-
-        async def on_message(result, **kwargs):
-          sentence = result.channel.alternatives[0].transcript
-          if sentence:
-            yield f"data: {sentence}\n\n"
-
-        dg_connection.on(LiveTranscriptionEvents.Transcript, on_message)
-
-        options = LiveOptions(
-            model="nova-2",
-            language="en-US",
-            smart_format=True,
-        )
-
-        await dg_connection.start(options)
-        await dg_connection.send(audio_data)
-        await dg_connection.finish()
-
-      except Exception as e:
-        yield f"data: Error: {str(e)}\n\n"
-
-    return StreamingHttpResponse(streaming_content=process_audio(),
-                                 content_type='text/event-stream')
-
-  return JsonResponse({'error': 'Invalid request method'})
-
-
-def recording(request):
-  return render(request, 'transcripe.html')
 
 
 def memento_mori(request):
@@ -250,32 +204,42 @@ class EditWeekiView(View):
   template_name = 'weeki/edit_weeki.html'
 
   def get(self, request, weeki_id):
-    weeki = get_object_or_404(Weeki, pk=weeki_id, user=request.user)
-    form = EditWeekiForm(instance=weeki)
-    categories = Category.objects.all().order_by('-id')
-    context = {'form': form, 'weeki': weeki, 'categories': categories}
-    return render(request, self.template_name, context)
+      weeki = get_object_or_404(Weeki, pk=weeki_id, user=request.user)
+      form = EditWeekiForm(instance=weeki)
+      categories = Category.objects.all().order_by('-id')
+      context = {'form': form, 'weeki': weeki, 'categories': categories}
+      return render(request, self.template_name, context)
 
+  @method_decorator(require_POST)
   def post(self, request, weeki_id):
-    weeki = get_object_or_404(Weeki, pk=weeki_id, user=request.user)
-    form = EditWeekiForm(request.POST, instance=weeki)
-    if form.is_valid():
-      try:
-        updated_weeki = form.save(commit=False)
-        updated_weeki.save()
-        messages.success(request, "Weeki updated successfully.")
-        return redirect(
-            reverse('app:week_with_year_and_week',
-                    kwargs={
-                        'year': updated_weeki.week.year.value,
-                        'week': updated_weeki.week.value
-                    }))
-      except Exception as e:
-        messages.error(request, f"Error updating Weeki: {str(e)}")
+      weeki = get_object_or_404(Weeki, pk=weeki_id, user=request.user)
+      action = request.POST.get('action')
 
-    categories = Category.objects.all().order_by('-id')
-    context = {'form': form, 'weeki': weeki, 'categories': categories}
-    return render(request, self.template_name, context)
+      if action == 'delete':
+          weeki.delete()
+          return JsonResponse({"success": True, "message": "Weeki deleted successfully."})
+
+      form = EditWeekiForm(request.POST, instance=weeki)
+
+      # Print received data for debugging
+      print("Received POST data:", request.POST)
+
+      if form.is_valid():
+          try:
+              updated_weeki = form.save()
+              return JsonResponse({
+                  "success": True,
+                  "message": "Weeki updated successfully.",
+                  "redirect_url": reverse('app:week_with_year_and_week', kwargs={
+                      'year': updated_weeki.week.year.value,
+                      'week': updated_weeki.week.value
+                  })
+              })
+          except Exception as e:
+              return JsonResponse({"success": False, "message": f"Error updating Weeki: {str(e)}"})
+      else:
+          errors = {field: str(error) for field, error in form.errors.items()}
+          return JsonResponse({"success": False, "errors": errors})
 
 
 def year_view(request, year=None):
@@ -430,52 +394,39 @@ def social_view(request):
   return render(request, 'social/social.html')
 
 
-def profile_settings(request):
-  profile = request.profile
-  user = request.user
-  if request.method == 'POST':
-    form = ProfileForm(request.POST, instance=profile)
-    if form.is_valid():
-      form.save()
-      messages.success(request, 'Profile updated successfully.')
-      return redirect('app:profile_settings')
-  else:
-    form = ProfileForm(instance=profile)
-  context = {'form': form}
-  return render(request, 'extra/profile_settings.html', context)
-
-
 def app_settings(request):
   profile = request.profile
   user = request.user
+
   if request.method == 'POST':
-    form = AppSettingsForm(request.POST, instance=profile)
+    form = ProfileForm(request.POST, request.FILES, instance=profile)
     if form.is_valid():
       form.save()
-      messages.success(request, 'App Settings updated successfully.')
-      return redirect('app:app_settings')
+      return redirect('app:settings')  # Redirect to profile page after saving
   else:
-    form = AppSettingsForm(instance=profile)
-  context = {'form': form}
-  return render(request, 'extra/app_settings.html', context)
+    form = ProfileForm(instance=profile)
+
+    context = {'form': form}
+    return render(request, 'extra/app_settings.html', context)
 
 
 def weeki_pdf(request):
-  weekis = Weeki.objects.all().order_by('-date_created')
+  return render(request, 'weeki_pdf.html')
+  # weekis = Weeki.objects.all().order_by('-date_created')
 
-  template_path = 'pdf_convert/pdf_memo_overview.html'
-  context = {'weekis': weekis}
-  # Create a Django response object, and specify content_type as pdf
-  response = HttpResponse(content_type='application/pdf')
-  # add name of user
-  response['Content-Disposition'] = 'filename="weeki_overview.pdf"'
-  # find the template and render it.
-  template = get_template(template_path)
-  html = template.render(context)
+  # template_path = 'pdf_convert/pdf_memo_overview.html'
+  # context = {'weekis': weekis}
+  # # Create a Django response object, and specify content_type as pdf
+  # response = HttpResponse(content_type='application/pdf')
+  # # add name of user
+  # response['Content-Disposition'] = 'filename="weeki_overview.pdf"'
+  # # find the template and render it.
+  # template = get_template(template_path)
+  # html = template.render(context)
 
-  # create a pdf
-  pisa_status = pisa.CreatePDF(html, dest=response)
-  # if error then show some funny view
-  if pisa_status.err:
-    return HttpResponse('We had some errors <pre>' + html + '</pre>')
-  return response
+  # # create a pdf
+  # pisa_status = pisa.CreatePDF(html, dest=response)
+  # # if error then show some funny view
+  # if pisa_status.err:
+  #   return HttpResponse('We had some errors <pre>' + html + '</pre>')
+  # return response

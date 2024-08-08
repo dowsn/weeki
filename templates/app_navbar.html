@@ -2,6 +2,37 @@
 {% load custom_tags %} 
 
 <nav class="menu-bar">
+  {% if request.resolver_match.url_name == 'weeki_new' %}
+
+  <div class="saveButton menu-item">
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+      <path d="M20 40 L35 55 L60 25" stroke="green" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </svg>
+  </div>
+  
+
+  
+  <div class="recordButton menu-item">
+
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+    <circle cx="40" cy="40" r="35" fill="red" />
+  </svg>
+  </div>
+
+  
+  <div class="closeButton menu-item">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+      <line x1="20" y1="20" x2="60" y2="60" stroke="#FFE5AD" stroke-width="8" stroke-linecap="round" class="svg-fill"/>
+      <line x1="60" y1="20" x2="20" y2="60" stroke="#FFE5AD" stroke-width="8" stroke-linecap="round"/>
+    </svg>
+  </div>
+    
+
+  {% else %}
+
+
+  
   <a href="{% url 'app:week' %}"  class="menu-item {% active "week" %}">
       <svg viewBox="0 0 80 80">
           <rect class="svg-fill"  x="5" y="5" width="70" height="18" rx="9" ry="9"/>
@@ -28,8 +59,7 @@
           <rect class="svg-fill"  x="5" y="30" width="70" height="20" rx="10" ry="10"/>
       </svg>
   </a>
-  <!-- <a href="{% url 'app:social' %}"  class="menu-item {% active 'social' %}">
-      <svg viewBox="0 0 80 80">
+ 
 
           <circle class="svg-fill"  cx="40" cy="15" r="10"/>
         <rect class="svg-fill"  x="20" y="30" width="40" height="20" rx="10" ry="10"/>
@@ -56,7 +86,9 @@
       <!-- <svg viewBox="0 0 80 80">
           <rect class="svg-fill"  x="5" y="5" width="70" height="70" rx="10" ry="10"/>
       </svg> -->
-  </a>
+          {% endif %}
+
+          
 </nav>
 
 

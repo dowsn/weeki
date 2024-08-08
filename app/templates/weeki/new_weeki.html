@@ -5,17 +5,16 @@
 <script src='{% static "js/weeki.js" %}'></script>
 <link rel="stylesheet" href='{% static "css/weeki.css" %}'>
 
-    <div>Week {{ week.value }}: {{ week.date_start }} - {{week.date_end }}</div>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button id="newWeekiButton" type="button">Record</button>
-    </form>
-    {% if messages %}
-    <ul class="messages">
-        {% for message in messages %}
-        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-        {% endfor %}
-    </ul>
-    {% endif %}
+
+<div class="full-screen-editor">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.content }}
+    {{ form.favorite }}
+    {{ form.week_id }}
+  </form>
+</div>
+
+
+
 {% endblock %}

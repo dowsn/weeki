@@ -1,19 +1,3 @@
-
-
-function openWeek() {
-
-         const week_selector = $('#weekSelector');
-         const selected_week = week_selector.val();
-         const selected_year = week_selector.attr('data-year');
-
-        console.log(selected_week);
-        console.log(selected_year);
-
-         if (selected_week && selected_year) {
-             window.location.href = `/app/week/${selected_year}/${selected_week}`;
-         }
-   }
-
 function editWeeki(weeki_id) {
 
   const weeki_url = `/app/weeki/edit/${weeki_id}`;
@@ -68,18 +52,28 @@ function deleteWeeki(weeki_id) {
 
 
 
-// Helper function to get CSRF token from cookies
 
 function getCsrfToken() {
   return document.querySelector('[name=csrfmiddlewaretoken]').value;
 }
-// function deleteWeeki(weeki_id) {
 
-//   const weeki_url = `/app/weeki/delete/${weeki_id}`;
 
-//   window.location.href = weeki_url;
 
-// }
+
+
+$(document).ready(function() {
+  
+  $('.week-option').each(function () {
+      $(this).on('click', function () {
+        console.log('clicked');
+          var selected_week = $(this).attr('week')
+          var selected_year = $(this).attr('year')
+
+          window.location.href = `/app/week/${selected_year}/${selected_week}`;
+
+      });
+  });    
+});
 
 
 

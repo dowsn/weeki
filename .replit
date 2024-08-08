@@ -1,29 +1,8 @@
-# run = ["python", "manage.py", "runserver", "0.0.0.0:3000"]
-# entrypoint = "manage.py"
-# modules = ["python-3.10:v18-20230807-322e88b"]
-
-# hidden = [".pythonlibs"]
-
-# [nix]
-# channel = "stable-23_11"
-
-# [unitTest]
-# language = "python3"
-
-# [deployment]
-# deploymentTarget = "static"
-# publicDir = "assets"
-
-# [[ports]]
-# localPort = 3000
-# externalPort = 80
-
-# old
-run = ["python", "manage.py", "runserver", "0.0.0.0:3000"]
 entrypoint = "manage.py"
 modules = ["python-3.10:v18-20230807-322e88b"]
-
 hidden = [".pythonlibs"]
+
+run = "poetry run daphne -p 3000 -b 0.0.0.0 django_project.asgi:application"
 
 [nix]
 channel = "stable-23_11"
@@ -33,7 +12,12 @@ language = "python3"
 
 [deployment]
 deploymentTarget = "cloudrun"
-run = ["sh", "-c", "python manage.py runserver 0.0.0.0:$PORT"]
+run = [
+  "sh",
+  "-c",
+  "poetry run daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
+]
+build = ["sh", "-c", "poetry install"]
 
 [[ports]]
 localPort = 3000

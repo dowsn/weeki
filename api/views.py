@@ -173,7 +173,7 @@ def getYear(request):
   response = {}
   for week in weeks:
     color_array = [
-        category.default_color for category in categories
+        category.color for category in categories
         if any(w for w in week.user_weekis if w.category_id == category.id)
     ]
     response[str(week.value)]['week_colors'] = color_array
