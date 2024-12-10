@@ -1,0 +1,170 @@
+.form-container {
+  max-width: 600px;
+  margin: 50px auto;
+  padding: 30px;
+  background-color: var(--main-lightest);
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--dark);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid var(--main);
+  border-radius: 999px;
+  background-color: var(--main-lightest);
+  color: var(--dark);
+}
+
+.form-group textarea {
+  border-radius: 20px;
+}
+
+.btn-primary {
+  background-color: var(--main);
+  color: var(--dark);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: var(--main-darker);
+}
+
+.error-message {
+  color: var(--red);
+  margin-top: 5px;
+}
+
+.topic-item {
+  border: 2px solid var(--main);
+  border-radius: 20px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.topic-item h3 {
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+
+.topic-item p {
+  color: var(--gray-darker);
+}
+
+.edit-btn,
+.add-icon {
+  background-color: var(--main);
+  color: var(--dark);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.add-new {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+  background-color: var(--main-lightest);
+  border: 2px dashed var(--main);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.add-icon {
+  font-size: 24px;
+}
+.registration-container {
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: var(--main-lightest);
+    border-radius: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.step {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--gray-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: var(--dark);
+}
+
+.step.active {
+    background-color: var(--main);
+    color: var(--dark);
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--dark);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--main);
+    border-radius: 999px;
+    background-color: var(--main-lightest);
+    color: var(--dark);
+}
+
+.form-group textarea {
+    border-radius: 20px;
+}
+
+.btn-primary {
+    background-color: var(--main);
+    color: var(--dark);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: var(--main-darker);
+}
+
+.error-message {
+    color: var(--red);
+    margin-top: 5px;
+    font-size: 0.9em;
+}

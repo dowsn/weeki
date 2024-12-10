@@ -1,42 +1,66 @@
 {
   "files": {
+    "api/agents/chat_agent.py": [
+      {
+        "id": "a8364a5e-fb3b-471d-a74d-2cf7c773baa0",
+        "line": 19,
+        "version": 729,
+        "index": 620
+      }
+    ],
     "api/views.py": [
       {
         "id": "52ae6766-bef9-4a50-a100-ba39c0ff5eca",
-        "line": 16,
-        "version": 760,
-        "index": 700
+        "line": 3,
+        "version": 7082,
+        "index": 99
       }
     ],
-    "app/migrations/0006_remove_profile_theme_remove_vision_category_and_more.py": [
+    "app/admin.py": [
+      {
+        "id": "4339598b-146b-4358-a2d7-691ababf6c55",
+        "line": 19,
+        "version": 488,
+        "index": 622
+      }
+    ],
+    "app/migrations/0006_remove_profile_theme_remove_vision_topic_and_more.py": [
       {
         "id": "fa93f5b4-2144-4696-a42b-7c64c329df12",
         "line": 13,
-        "version": 1,
+        "version": 2,
         "index": 312
       }
     ],
     "app/models.py": [
       {
         "id": "7876d13f-117c-4f32-bb40-47d24a721eb4",
-        "line": 9,
-        "version": 3062,
-        "index": 226
+        "line": 12,
+        "version": 5233,
+        "index": 278
+      }
+    ],
+    "app/views.py": [
+      {
+        "id": "05928c28-0e6d-4696-9469-e490c9444874",
+        "line": 84,
+        "version": 16247,
+        "index": 2949
       }
     ],
     "assets/css/style.css": [
       {
         "id": "b09031cf-98d9-4f22-8e4f-a2b318626c01",
-        "line": 226,
-        "version": 1679,
-        "index": 3699
+        "line": 271,
+        "version": 2909,
+        "index": 4314
       }
     ],
     "templates/app_navbar.html": [
       {
         "id": "da6ca440-142b-4381-ab32-8e50598ea37f",
         "line": 16,
-        "version": 778,
+        "version": 795,
         "index": 386
       }
     ],

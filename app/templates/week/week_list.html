@@ -8,9 +8,7 @@
 <link rel="stylesheet" href='{% static "css/week.css" %}'>
 
 <div class="twoButtons">
-  <button id="weekSelectorBtn" class="green-button" onclick="togglePopup()">Go to</button>
-
-  
+  <button id="weekSelectorBtn" class="selector-button" onclick="togglePopup()">{{ t_week|capfirst }} {{ selected_week.value }}: {{ selected_week.date_start }}</button>
  
   
   <a href="{% url 'app:week' %}">
@@ -18,12 +16,26 @@
   </a>
 </div>
 
+<div class="switcherHolder centered">
+  <div class="switcher week_sorting">
+    {% for sorting_type in sorting_types %}
+      <button value="{{ sorting_type }}" class="{% if sorting_type == sorting %}active{% endif %}">
+        {{ sorting_type|capfirst }}
+      </button>
+    {% endfor %}
+    
+    <!-- <div class="slider"></div>
+     -->
+  </div>
+</div>
+
 <div id="popupContainer" class="popup-container" style="display: none;">
   <div class="popup-content">
     {% for week in weeks %}
-      <button class="week-option" week="{{ week.value }}" year="{{ year|replace_spaces_and_decimals }}">
-        {{ t_week|capfirst }} {{ week.value }}: {{ week.date_start }} - {{week.date_end }}
-      </button>
+      
+    <button class="option {% if week.id == selected_week.id %} selected-option {% endif %}" week="{{ week.value }}" year="{{ year|replace_spaces_and_decimals }}">
+      {{ t_week|capfirst }} {{ week.value }}: {{ week.date_start }} 
+    </button>
     {% endfor %}
   </div>
 </div>
@@ -34,30 +46,24 @@
 <br>
 
 
-<!-- <a href="{% url 'app:weeki_new_with_weekID' weekID=selected_week %}">
-  <button class="middleButton green-button">
-  Add Weeki
-  </button>
-</a> -->
 
-
-<div class="categories-container">
-  {% for category in categories_with_weekis %}
-  <div class="week-category">
-    <h2 class="week_label">{{ category.name }}</h2>
+<div class="topics-container">
+  {% if sorting == 'topics' %}
+  {% for parent in labeled_weekis %}
+  <div class="week-topic">
+    <h2 class="week_label">{{ parent.name }}</h2>
     <div class="weekis-container">
-      {% for weeki in category.weekis %}
-        <div class="weeki-box {% if weeki.favorite %}favorite{% endif %}" style="border-color: {{ category.color }};">
+      {% for weeki in parent.weekis %}
+        <div class="weeki-box {% if weeki.favorite %}favorite{% endif %}" style="border-color: {{ parent.color }};">
           <div class="weeki-header">
             <span class="weeki-date">{{ weeki.date_created }}   
               {% if weeki.favorite %}
               <span class="favorite-icon" title="Favorite">⭐</span>
             {% endif %} </span>
             <div class="weeki-actions">
-              <button class="edit-btn" onclick="editWeeki({{ weeki.id }})">
-                <i class="fas fa-edit"></i>
+              <button class="edit-btn" onclick="editWeeki({{ weeki.id }})" style="width: 40px">
+                 {% svg_include "edit_icon.svg" %}
               </button>
-            
             </div>
           </div>
           <div class="weeki-content">
@@ -68,6 +74,66 @@
     </div>
   </div>
   {% endfor %}
+{% elif sorting == 'days' %}
+
+
+
+  {% for parent in labeled_weekis %}
+  <div class="week-topic">
+    <h2 class="week_label">{{ parent.date }}</h2>
+    <div class="weekis-container">
+      {% for weeki in parent.weekis %}
+        <div class="weeki-box {% if weeki.favorite %}favorite{% endif %}" style="border-color: {{ weeki.color }};">
+          <div class="weeki-header">
+            <span class="weeki-date">{{ weeki.date_created }}   
+              {% if weeki.favorite %}
+              <span class="favorite-icon" title="Favorite">⭐</span>
+            {% endif %} </span>
+            <div class="weeki-actions">
+              <button class="edit-btn" onclick="editWeeki({{ weeki.id }})">
+                <i class="fas fa-edit"></i>
+              </button>
+
+            </div>
+          </div>
+          <div class="weeki-content">
+            {{ weeki.content }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  
+   
+ 
+  {% else %}
+  {% for date in labeled_weekis %}
+  <div class="week-topic">
+    <h2 class="week_label">{{ date.date }}</h2>
+    <div class="weekis-container">
+      {% for note in date.notes %}
+        <div class="weeki-box" >
+          <div class="weeki-header">
+            <span class="weeki-date">{{ note.date_created }}   
+
+            <!-- <div class="weeki-actions">
+              <button class="edit-btn" onclick="editWeeki({{ note.id }})">
+                <i class="fas fa-edit"></i>
+              </button>
+
+            </div> -->
+          </div>
+          <div class="weeki-content">
+            {{ note.content }}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+   
+  {% endif %}
 </div>
 
 

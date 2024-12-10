@@ -1,5 +1,6 @@
 {% extends 'base_layout.html' %}
 {% load static %}
+{% load custom_tags %}
 
 {% block content %}
 <script src='{% static "js/weeki.js" %}'></script>
@@ -7,24 +8,24 @@
 <link rel="stylesheet" href='{% static "css/weeki.css" %}'>
 
 <h2>Edit Weeki</h2>
-<form id="editWeekiForm">
+<form id="editWeekiForm" week="{{ week.value}}" year="{{ week.year.value|replace_spaces_and_decimals  }}" method="post"}}"}>
     {% csrf_token %}
     {{ form.non_field_errors }}
     
     <div class="mb-3">
-        <label>Category:</label>
-        <div class="category-selector">
-            {% for category in categories %}
-            <button type="button" class="category-button {% if category.id == weeki.category.id %}active{% endif %}" data-category-id="{{ category.id }}">
-                <div class="category-icon">
-                    <!-- Category icons here (same as in your original code) -->
+        <label>Topic:</label>
+        <div class="topic-selector">
+            {% for topic in topics %}
+            <button type="button" class="topic-button {% if topic.id == weeki.topic.id %}active{% endif %}" data-topic-id="{{ topic.id }}">
+                <div class="topic-icon">
+                    <!-- Topic icons here (same as in your original code) -->
                 </div>
-                <span>{{ category.name }}</span>
+                <span>{{ topic.name }}</span>
             </button>
             {% endfor %}
         </div>
-        {{ form.category.errors }}
-        {{ form.category }}
+        {{ form.topic.errors }}
+        {{ form.topic }}
     </div>
 
     <div class="mb-3">
@@ -38,7 +39,11 @@
     </div>
 
     <button type="button" id="updateButton" class="btn btn-primary">Update Weeki</button>
-    <button type="button" id="deleteButton" class="btn btn-danger">Delete Weeki</button>
+    <button type="button" id="deleteButton" class="btn btn-danger" onclick="togglePopup()">Delete Weeki</button>
+
+ 
+
+    <div id="popupContainer" class="popup-container" style="display: none;">
 </form>
 
 

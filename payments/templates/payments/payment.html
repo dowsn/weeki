@@ -1,0 +1,38 @@
+
+ {% extends 'base_layout.html' %}
+
+ {% block content %}
+
+<script src="https://js.stripe.com/v3/"></script>
+
+<h1>Monthly Subscription - 5 EUR</h1>
+<button id="checkout-button">Subscribe</button>
+
+<script>
+    var stripe = Stripe('{{ stripe_public_key }}');
+    var checkoutButton = $('#checkout-button');
+
+    checkoutButton.on('click', function() {
+        ajaxCall('payments', 'create-checkout-session/', {})
+        .then(function(response) {
+            // The response is already a JSON object, no need to parse it
+            if (response.error) {
+                throw new Error(response.error);
+            }
+            return stripe.redirectToCheckout({ sessionId: response.id });
+        })
+        .then(function(result) {
+            if (result.error) {
+                alert(result.error.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            alert('An error occurred: ' + error.message);
+        });
+    });
+
+
+</script>
+
+{% endblock %}

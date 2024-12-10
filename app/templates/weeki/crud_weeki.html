@@ -6,22 +6,22 @@
   <div class="weeki-holder">
   {% for weeki in weekis %}
     <div class="weeki toggleHidden">
-      <div class="category-selector">
-          <button class="category-button active" data-category="myself">
-              <svg class="category-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <div class="topic-selector">
+          <button class="topic-button active" data-topic="myself">
+              <svg class="topic-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
               </svg>
               <span>Myself</span>
           </button>
-          <button class="category-button" data-category="productivity">
-              <svg class="category-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="topic-button" data-topic="productivity">
+              <svg class="topic-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
               </svg>
               <span>Productivity</span>
           </button>
-          <button class="category-button" data-category="social">
-              <svg class="category-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button class="topic-button" data-topic="social">
+              <svg class="topic-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                   <circle cx="9" cy="7" r="4"></circle>
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -35,8 +35,8 @@
 
       
         <div class="weeki-header">
-          <div class="weeki-category">
-            {{ weeki.category }}
+          <div class="weeki-topic">
+            {{ weeki.topic }}
           </div>
           <div class="weeki-intensity">
             {{ weeki.intensity }}

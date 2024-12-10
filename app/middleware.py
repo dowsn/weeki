@@ -19,7 +19,8 @@ class ProfileLanguageMiddleware:
     if request.user.is_authenticated:
       try:
         request.profile = Profile.get_user_profile(request.user.id)
-        request.language_code = request.profile.language.code
+        request.language_code = getattr(request.profile.language, 'code',
+                                        'EN_en')
         if request.profile and hasattr(request.profile.language, 'locale'):
           user_language = request.profile.language.locale
           translation.activate(user_language)
@@ -50,6 +51,6 @@ class AppLoginRequiredMiddleware(MiddlewareMixin):
     # Check if the view is part of the 'app' application
     resolved = resolve(request.path)
     if resolved.app_name == 'app':
-      if not request.user.is_authenticated:
+      if not request.user.is_authenticated and 'cron_job' not in request.path:
         return redirect(settings.LOGIN_URL + f'?next={request.path}')
     return None

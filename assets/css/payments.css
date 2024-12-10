@@ -1,0 +1,59 @@
+.card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  text-align: center;
+}
+.tick-circle {
+  width: 64px;
+  height: 64px;
+  background-color: #d1fae5;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 1rem;
+}
+.tick {
+  width: 32px;
+  height: 32px;
+  fill: #10b981;
+}
+h2 {
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+p {
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+.button {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.button:hover {
+  background-color: #059669;
+}
+
+.x-circle {
+  width: 64px;
+  height: 64px;
+  background-color: #fee2e2;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 1rem;
+}
+.x {
+  width: 32px;
+  height: 32px;
+  fill: #ef4444;
+}

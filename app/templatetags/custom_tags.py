@@ -1,5 +1,9 @@
 from django import template
 from django.urls import resolve
+from django.templatetags.static import static
+from django.utils.safestring import mark_safe
+from django.conf import settings
+import os
 
 register = template.Library()
 
@@ -38,3 +42,24 @@ def active(context, *words):
         return "active"
 
   return ""
+
+
+@register.simple_tag
+def svg_include(filename):
+  # Get the static URL
+  static_url = static(f'svgs/{filename}')
+
+  # Remove the STATIC_URL prefix to get the relative path
+  relative_path = static_url.replace(settings.STATIC_URL, '')
+
+  # Check in STATICFILES_DIRS
+  for static_dir in settings.STATICFILES_DIRS:
+    file_path = os.path.join(static_dir, relative_path)
+    try:
+      with open(file_path, 'r') as svg_file:
+        svg_content = svg_file.read()
+      return mark_safe(svg_content)
+    except (FileNotFoundError, IOError):
+      continue
+
+  return f'SVG file {filename} not found'

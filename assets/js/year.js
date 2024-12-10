@@ -1,12 +1,14 @@
-function openYear() {
-      const yearSelector = document.getElementById('yearSelector');
-      const selectedYear = yearSelector.value;
+$(document).ready(function() {
 
-      if (selectedYear) {
-          window.location.href = `/app/year/${selectedYear}`;
-      }
-}
+  $('.option').each(function () {
+      $(this).on('click', function () {
+          var selected_year = $(this).attr('year')
 
+          window.location.href = `/on/year/${selected_year}`;
+
+      });
+  });    
+});
 
 function populateGrid(data) {
   var grid = $('#yearGridContainer');
@@ -20,8 +22,8 @@ function populateGrid(data) {
       }).join('');
       elementHTML = `<div class="weekiColors editableWeek ${currentWeekClass}">${colorElements}</div>`;
     } else if (values.past) {
-      const blackElement = `<div class="weekiColorElement" style="background-color: var(--dark)"></div>`;
-      elementHTML = `<div class="weekiColors editableWeek">${blackElement}</div>`;
+      const blackElement = `<div class="weekiColorElement" style="background-color: var(--main)"></div>`;
+      elementHTML = `<div class="weekiColors">${blackElement}</div>`;
     } else if (values.current) {
       elementHTML = `<div class="weekiColors editableWeek ${currentWeekClass}"></div>`;
     } else {
@@ -41,11 +43,12 @@ function populateGrid(data) {
    
     if($(this).find('.weekiColors').hasClass('editableWeek')){
       var tdValue = $(this).attr('value');
-      var year = $('#yearSelector').val();
+      var year = $('.yearSelector').attr('year');
+
 
 
       if (year && tdValue) {
-          window.location.href = '/app/week/' + year + '/' + tdValue;
+          window.location.href = '/on/week/' + year + '/' + tdValue;
     } 
   }
 })

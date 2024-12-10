@@ -1,0 +1,169 @@
+{% extends 'base_layout.html' %}
+
+{% load static %}
+{% block content %}
+
+<script>
+$(document).ready(function() {
+    const $topicGrid = $('#topicGrid');
+    const $topicModal = $('#topicModal');
+    const $topicForm = $('#topicEditForm');
+    const $topicsData = $('#topicsData');
+    const $completeRegistrationBtn = $('#completeRegistration');
+    let topics = {{ predefined_topics|safe }};
+
+    function openTopicModal(topic = null) {
+        const $modalTitle = $topicModal.find('h2');
+        const $nameInput = $('#topicName');
+        const $colorInput = $('#topicColor');
+        const $descriptionInput = $('#topicDescription');
+        const $deleteBtn = $('#deleteTopicBtn');
+
+        if (topic) {
+            $modalTitle.text('Edit Topic');
+            $nameInput.val(topic.name);
+            $colorInput.val(topic.color);
+            $descriptionInput.val(topic.description);
+            $topicForm.data('index', topics.indexOf(topic));
+            $deleteBtn.show();
+        } else {
+            $modalTitle.text('Add New Topic');
+            $topicForm[0].reset();
+            $topicForm.removeData('index');
+            $deleteBtn.hide();
+        }
+
+        $topicModal.show();
+    }
+
+    function closeTopicModal() {
+        $topicModal.hide();
+    }
+
+    function saveTopic(event) {
+        event.preventDefault();
+        const name = $('#topicName').val();
+        const color = $('#topicColor').val();
+        const description = $('#topicDescription').val();
+
+        const topic = { name, color, description, active: true };
+
+        const index = $topicForm.data('index');
+        if (index !== undefined) {
+            topics[index] = topic;
+        } else {
+            if (topics.length < 6) {
+                topics.push(topic);
+            } else {
+                alert('You can only have a maximum of 6 topics.');
+                return;
+            }
+        }
+
+        updateTopicGrid();
+        closeTopicModal();
+    }
+
+    function deleteTopic() {
+        const index = $topicForm.data('index');
+        if (index !== undefined) {
+            topics.splice(index, 1);
+            updateTopicGrid();
+            closeTopicModal();
+        }
+    }
+
+    function updateTopicGrid() {
+        $topicGrid.empty();
+        $.each(topics, function(index, topic) {
+            const $topicElement = $('<div>', {
+                class: 'topic-item',
+                css: { backgroundColor: topic.color },
+                html: `
+                    <h3>${topic.name}</h3>
+                    <button class="edit-btn" data-index="${index}">Edit</button>
+                `
+            });
+            $topicGrid.append($topicElement);
+        });
+
+        if (topics.length < 6) {
+            const $addNewElement = $('<div>', {
+                class: 'topic-item add-new',
+                html: '<div class="add-icon">+</div>'
+            });
+            $topicGrid.append($addNewElement);
+        }
+
+        $topicsData.val(JSON.stringify(topics));
+    }
+
+    $topicGrid.on('click', '.add-new', function() {
+        openTopicModal();
+    });
+
+    $topicGrid.on('click', '.edit-btn', function() {
+        const index = $(this).data('index');
+        openTopicModal(topics[index]);
+    });
+
+    $topicForm.on('submit', saveTopic);
+
+    $topicModal.find('.btn-cancel').on('click', closeTopicModal);
+
+    $('#deleteTopicBtn').on('click', deleteTopic);
+
+    $completeRegistrationBtn.on('click', function(event) {
+        event.preventDefault();
+        $('#registrationForm').submit();
+    });
+
+    updateTopicGrid();
+});
+</script>
+
+<link rel="stylesheet" href='{% static "css/forms.css" %}'>
+
+<div class="form-container">
+    <div class="step-indicator">
+        <div class="step {% if step == 1 %}active{% endif %}">1</div>
+        <div class="step {% if step == 2 %}active{% endif %}">2</div>
+        <div class="step {% if step == 3 %}active{% endif %}">3</div>
+    </div>
+    <h2>Sign Up - Step {{ step }}</h2>
+    {% if step == 3 %}
+        <div id="topicGrid"></div>
+        <form id="registrationForm" method="post" action="{% url 'accounts:registration_step' step=3 %}">
+            {% csrf_token %}
+            <input type="hidden" name="topics" id="topicsData">
+            <button type="button" id="completeRegistration" class="btn btn-primary">Complete Registration</button>
+        </form>
+        {% include 'forms/topic_form.html' %}
+    {% else %}
+        <form method="post" action="{% url 'accounts:registration_step' step %}">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                            <div class="error-message">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+                {% for error in form.non_field_errors %}
+                    <div class="error-message">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+            <button type="submit" class="btn btn-primary">Next</button>
+        </form>
+    {% endif %}
+</div>
+
+{% endblock %}

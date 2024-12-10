@@ -3,6 +3,7 @@
 
 {% block content %}
 <script src='{% static "js/weeki.js" %}'></script>
+<script src='{% static "js/text_only_div.js" %}'></script>
 <link rel="stylesheet" href='{% static "css/weeki.css" %}'>
 
 
@@ -10,7 +11,6 @@
   <form method="post">
     {% csrf_token %}
     {{ form.content }}
-    {{ form.favorite }}
     {{ form.week_id }}
   </form>
 </div>

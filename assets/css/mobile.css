@@ -6,5 +6,12 @@
     width: 100%;
     bottom: 0;
     top: unset;
+    border-radius: 0px;
   } 
+
+  .profile-bar-inside {
+    flex-direction: column-reverse !important;
+  }
+
+  
 }

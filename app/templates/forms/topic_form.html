@@ -1,0 +1,27 @@
+
+<!-- Topic form (forms/topic_form.html) -->
+<div id="topicModal" class="modal">
+    <div class="popup">
+        <h2>Add/Edit Topic</h2>
+        <form id="topicEditForm">
+            <div class="form-group">
+                <label for="topicName">Name:</label>
+                <input type="text" id="topicName" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="topicColor">Color:</label>
+                <input type="color" id="topicColor" name="color" required>
+            </div>
+            <div class="form-group">
+                <label for="topicDescription">Description:</label>
+                <textarea id="topicDescription" name="description" placeholder="Enter topic description" rows="4" cols="50" maxlength="500" required></textarea>
+            </div>
+            <input type="hidden" id="topicActive" name="active" value="true">
+            <div class="button-group">
+                <button type="button" id="deleteTopicBtn" class="btn-delete">Delete</button>
+                <button type="button" class="btn-cancel">Cancel</button>
+                <button type="submit" class="btn-save">Save</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,43 +1,6 @@
 /* popup  */
 
 
-.popup-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.popup-content {
-  background-color: white;
-  padding: 20px;
-  border-radius: 5px;
-  max-width: 80%;
-  max-height: 80%;
-  overflow-y: auto;
-}
-
-.week-option {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  margin: 5px 0;
-  text-align: left;
-  background-color: #f0f0f0;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.week-option:hover {
-  background-color: #e0e0e0;
-}
 
 /* weeki  */
 
@@ -58,17 +21,18 @@
 .week_label {
   display: flex;
   justify-content: center;
+  color: var(--main)
 }
 
-.categories-container {
+.topics-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 20px;
+  padding: 10px;
   box-sizing: border-box;
 }
 
-.week-category {
+.week-topic {
   width: 100%;
   margin-bottom: 30px;
 }
@@ -78,11 +42,15 @@
 .weekis-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  margin-bottom: 20px; /* Fallback for gap property on Safari */
+}
+
+.weekis-container > * + * {
+  margin-top: 20px; /* Equivalent to gap for Safari */
 }
 
 .weeki-box {
-  border: 2px solid;
+  border: 4px solid;
   border-radius: 15px;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -99,7 +67,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 15px;
-  background-color: #f8f8f8;
+  background-color: var(--main-lightest);
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -132,7 +100,7 @@
 
 .weeki-content {
   padding: 15px;
-  background-color: var(--main-lightest)
+  background-color: var(--main)
 }
   line-height: 1.6;
 }

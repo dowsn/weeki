@@ -1,15 +1,17 @@
 from django.contrib import admin
-from .models import Week, Profile, Weeki, Year, Category, Language, Translation
+from .models import AppFeedback, Chat_Session, Week, Profile, Weeki, Year, Topic, Language, Translation, Original_Note, Prompt, AIModel, Prompt_Debug, Conversation, Conversation_Session, Sum, Message, Summary, Chat_Session
 from .models import ErrorLog
 
 # Register your models here.
-admin.site.register(Week)
 admin.site.register(Profile)
-admin.site.register(Weeki)
-admin.site.register(Year)
-admin.site.register(Category)
-admin.site.register(Language)
-admin.site.register(Translation)
+admin.site.register(Topic)
+admin.site.register(Chat_Session)
+admin.site.register(Message)
+admin.site.register(Summary)
+
+admin.site.register(Prompt)
+admin.site.register(AIModel)
+admin.site.register(Prompt_Debug)
 
 
 @admin.register(ErrorLog)

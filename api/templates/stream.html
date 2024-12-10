@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        #chat-box {
+            height: 400px;
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        .controls {
+            width: 80%;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 8px;
+        }
+        button {
+            padding: 8px 16px;
+        }
+        .status {
+            margin: 20px auto;
+            width: 80%;
+            padding: 10px;
+            background: #eee;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <div id="status" class="status">WebSocket Status: Connecting...</div>
+    <div id="chat-box"></div>
+    <div class="controls">
+        <input type="text" id="message-input" placeholder="Type your message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message-input');
+        const statusDiv = document.getElementById('status');
+        let currentResponse = '';
+        let userId = {{userId}};
+        let model = "{{model}}";
+        // Get the current host from the browser
+        const host = window.location.hostname;
+        const port = window.location.port;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        
+        // Log connection details for debugging
+        console.log('Attempting to connect to WebSocket:');
+        console.log(`Host: ${host}`);
+        console.log(`Port: ${port}`);
+        console.log(`Protocol: ${wsProtocol}`);
+        
+        // Create WebSocket connection
+        const wsUrl = `${wsProtocol}//${host}:${port}/ws/api/chat/${userId}/${model}`;
+        console.log(`WebSocket URL: ${wsUrl}`);
+        const ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+            console.log('WebSocket Connected');
+            statusDiv.innerHTML = '<span class="success">WebSocket Status: Connected</span>';
+            appendMessage('System', 'Connected to chat');
+        };
+        
+        ws.onmessage = function(event) {
+            console.log('Message received:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.token) {
+                    currentResponse += data.token;
+                    updateLastMessage('Assistant', currentResponse);
+                } else if (data.error) {
+                    appendMessage('Error', data.error);
+                }
+            } catch (e) {
+                console.error('Error parsing message:', e);
+                appendMessage('Error', 'Failed to parse message');
+            }
+        };
+        
+        ws.onclose = function(event) {
+            console.log('WebSocket Disconnected:', event.code, event.reason);
+            statusDiv.innerHTML = '<span class="error">WebSocket Status: Disconnected</span>';
+            appendMessage('System', `Disconnected from chat (Code: ${event.code})`);
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocket Error:', error);
+            statusDiv.innerHTML = '<span class="error">WebSocket Status: Error occurred</span>';
+            appendMessage('Error', 'WebSocket error occurred');
+        };
+        
+        function sendMessage() {
+            if (ws.readyState !== WebSocket.OPEN) {
+                appendMessage('Error', 'WebSocket is not connected');
+                return;
+            }
+            
+            const message = messageInput.value.trim();
+            if (message) {
+                console.log('Sending message:', message);
+                appendMessage('You', message);
+                ws.send(JSON.stringify({
+                    query: message
+                }));
+                messageInput.value = '';
+                currentResponse = '';
+            }
+        }
+        
+        function appendMessage(sender, message) {
+            const msgDiv = document.createElement('div');
+            msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        function updateLastMessage(sender, message) {
+            const lastMsg = chatBox.lastElementChild;
+            if (lastMsg && lastMsg.querySelector('strong').textContent === sender + ':') {
+                lastMsg.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            } else {
+                appendMessage(sender, message);
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

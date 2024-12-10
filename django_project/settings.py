@@ -13,77 +13,60 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
-
-APP_NAME = 'weeki'
-
-LOGIN_URL = '/accounts/login/'
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+APP_NAME = 'weeki'
+LOGIN_URL = '/accounts/login/'
 SITE_URL = os.getenv('SITE_URL')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
-
-ASGI_APPLICATION = 'django_project.asgi.application'
-
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    },
-}
-
-DATETIME_FORMAT = '%d. %B %H:%M'
-
-USE_L10N = True
-DATETIME_FORMAT = '%d. %B %H:%M'
-USE_THOUSAND_SEPARATOR = True
-
 SECRET_KEY = 'django-insecure-4ju2n@$f9d0c=h)_g0lbb%k9&@rf(xa$d$g$&5ri$uf)*gev^4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+SETTINGS_DEBUG_AI = True
 
 ALLOWED_HOSTS = [".replit.dev", ".replit.app"]
 CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
 
-# Application definition, componenets of the project
-
+# API Keys
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+XAI_API_KEY = os.environ.get('XAI_API_KEY')
 DEEPGRAM_API_KEY = ''
 
+# Application definition
 INSTALLED_APPS = [
     'channels',
-    # create superuser by
     'django.contrib.admin',
     'django.contrib.auth',
-    # python manage.py createsuperuser with above
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'rest_framework_simplejwt',
+    'corsheaders',
 
-    # third party
-
-    # own
+    # Own apps
     'blog.apps.BlogConfig',
     'app.apps.AppConfig',
     'api.apps.ApiConfig',
     'accounts.apps.AccountsConfig',
+    'payments'
 ]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-# security features for requests build in
+# Middleware
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'api.middleware.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -91,89 +74,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.ProfileLanguageMiddleware',
-    'app.middleware.AppLoginRequiredMiddleware'
+    'app.middleware.AppLoginRequiredMiddleware',
+    'django_project.middleware.Custom404Middleware'
 ]
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
-}
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-        'file': {
-            'level': 'DEBUG',
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-        },
-    },
-    'root': {
-        'handlers': ['console', 'file'],
-        'level': 'DEBUG',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-            'propagate': False,
-        },
-        'your_app_name': {  # replace with your app's name
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-    },
-}
-
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': False,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-    'AUTH_HEADER_TYPES': ('Bearer', ),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken', ),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-    'JTI_CLAIM': 'jti',
-}
-
-# security
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
-
-# If you're using a React Native app or any frontend hosted separately, add CORS settings:
-INSTALLED_APPS += ['corsheaders']
-MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware'
-              ] + MIDDLEWARE  # Add this at the beginning of MIDDLEWARE
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Add your frontend URL(s) here
-]
-
-# security features for requests build in, handling urls automatically
-ROOT_URLCONF = 'django_project.urls'
-
-# html page that gets rendered in django
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -201,14 +106,7 @@ TEMPLATES = [
     },
 ]
 
-# server goes through and uses this setting
-WSGI_APPLICATION = 'django_project.wsgi.application'
-
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-# location od db and by default sqlite
-
+# Database Configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -223,67 +121,128 @@ DATABASES = {
     }
 }
 
-db_from_env = dj_database_url.config(conn_max_age=600)
-DATABASES['default'].update(db_from_env)
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.environ.get('PGDATABASE'),
-#         'USER': os.environ.get('PGUSER'),
-#         'PASSWORD': os.environ.get('PGPASSWORD'),
-#         'HOST': os.environ.get('PGHOST'),
-#         'PORT': os.environ.get('PGPORT'),
-#         'OPTIONS': {
-#             'sslmode': 'prefer',
-#         },
-#         'CONN_MAX_AGE': 600,
-#         'CONN_HEALTH_CHECKS': True,
-#         'AUTOCOMMIT': True,
-#         'ATOMIC_REQUESTS': False,
-#         'TEST': {
-#             'NAME': None,
-#         },
-#     }
-# }
-
-# Use dj_database_url to parse DATABASE_URL if it's set
+# Update database configuration from $DATABASE_URL if available
 if 'DATABASE_URL' in os.environ:
-  DATABASES['default'] = dj_database_url.config(
-      conn_max_age=600,
-      ssl_require=True,
-  )
+  DATABASES['default'].update(
+      dj_database_url.config(
+          conn_max_age=600,
+          ssl_require=True,
+      ))
 
-# Ensure TIME_ZONE is set
-TIME_ZONE = 'UTC'  # or your preferred time zone
-USE_TZ = TrueATABASES = {
+# Channels Configuration
+ASGI_APPLICATION = 'django_project.asgi.application'
+CHANNEL_LAYERS = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    },
+}
+
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day'
     }
 }
 
-# DATABASES = {
-#     'default':
-#     dj_database_url.config(
-#         default=os.environ.get('DATABASE_URL'),
-#         conn_max_age=600,
-#         ssl_require=not DEBUG,
-#     )
-# }
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken', ),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_SECURE': True,
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_PATH': '/',
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+}
 
-# SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+# Security Settings - Adjusted based on DEBUG
+if DEBUG:
+  # Development settings
+  SECURE_SSL_REDIRECT = False
+  SECURE_PROXY_SSL_HEADER = None
+  SESSION_COOKIE_SECURE = False
+  CSRF_COOKIE_SECURE = False
+  SECURE_HSTS_SECONDS = 0
+  SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+  SECURE_HSTS_PRELOAD = False
+  SECURE_BROWSER_XSS_FILTER = True
+  SECURE_CONTENT_TYPE_NOSNIFF = False
+else:
+  # Production settings
+  SECURE_SSL_REDIRECT = True
+  SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+  SESSION_COOKIE_SECURE = True
+  CSRF_COOKIE_SECURE = True
+  SECURE_HSTS_SECONDS = 31536000
+  SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+  SECURE_HSTS_PRELOAD = True
+  SECURE_BROWSER_XSS_FILTER = True
+  SECURE_CONTENT_TYPE_NOSNIFF = True
+  X_FRAME_OPTIONS = 'DENY'
 
-# Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
+# CORS Settings
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    'http://localhost:8081',
+    'http://localhost:8080',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
+# Static and Media Files
+STATIC_URL = '/static/'
+STATICFILES_DIRS = (os.path.join(BASE_DIR, 'assets'), )
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'CET'
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
+USE_THOUSAND_SEPARATOR = True
+DATETIME_FORMAT = '%d. %B %H:%M'
+
+# URLs
+ROOT_URLCONF = 'django_project.urls'
+WSGI_APPLICATION = 'django_project.wsgi.application'
+
+# Default Auto Field
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Auth Password Validators
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME':
@@ -303,25 +262,51 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'DEBUG',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'your_app_name': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 
-LANGUAGE_CODE = 'en-us'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-TIME_ZONE = 'CET'
 
-USE_I18N = True
 
-USE_TZ = True
+# Stripe Configuration
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
-STATIC_URL = '/static/'
-
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'assets'), )
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.your-email-provider.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')

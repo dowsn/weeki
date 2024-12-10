@@ -1,21 +1,44 @@
 {% extends 'base_layout.html' %}
 
+{% load static %}
+
 {% block content %}
 
-  <div>Login</div>
-  <form class="site-form" action="{% url 'accounts:login' %}" method="post">
-    {% csrf_token %}
-    {{ form }}
-    {%  if request.GET.next %}
-      <input type="hidden" name="next" value="{{ request.GET.next }}">
-    {% endif %}
-    <input type="submit" value="Login">
-    <div class="error-message">
-      {% if error %}
-            {{ error }}
-      {% endif %}
-    </div>
-  </form>
+<link rel="stylesheet" href='{% static "css/forms.css" %}'>
 
+       
+
+   
+
+    <div class="form-container">
+        <h1>Login</h1>
+        <form class="site-form" action="{% url 'accounts:login' %}" method="post">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="error-message">
+                            {% for error in field.errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+            <input class='btn-primary' type="submit" value="Login">
+        </form>
+        {% if form.non_field_errors %}
+            <div class="error-message">
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
 
 {% endblock %}

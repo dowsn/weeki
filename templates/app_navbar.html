@@ -69,7 +69,7 @@
           <!-- <rect x="5" y="60" width="70" height="20" rx="7.5" ry="7.5"/> 
       </svg> -->
   
-  <a href="{% url 'app:extra' %}" class="menu-item {% active 'extra' %}">
+  <a href="{% url 'app:build' %}" class="menu-item {% active 'build' %}">
     <svg viewBox="0 0 80 80">
 
             <circle class="svg-fill"  cx="40" cy="15" r="10"/>
@@ -79,13 +79,7 @@
 
        
     </a>
-    <!-- <a href="{% url 'app:extra' %}" class="menu-item {% active 'extra' %}">
-        <svg viewBox="0 0 80 80">
-            <rect class="svg-fill"  x="5" y="5" width="70" height="70" rx="10" ry="10"/>
-        </svg> -->
-      <!-- <svg viewBox="0 0 80 80">
-          <rect class="svg-fill"  x="5" y="5" width="70" height="70" rx="10" ry="10"/>
-      </svg> -->
+   
           {% endif %}
 
           
@@ -93,22 +87,6 @@
 
 
 
-  <!-- <div class="appNavigation">
 
-    <div class="appNavigationElement">
-      <a href="{% url 'app:week' %}">Week</a>
-    </div>
-    <div class="appNavigationElement">
-      <a href="{% url 'app:year' %}">Year</a>
-    </div>
-    {% if user.is_authenticated %}
-    <div class="appNavigationElement">
-      <a href="{% url 'app:extra' %}">Extra</a>
-    </div>
-    {% endif %}
-    
-
-   
-  </div> -->
 
 

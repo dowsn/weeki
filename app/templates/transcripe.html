@@ -52,7 +52,7 @@
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
 
-        const eventSource = new EventSource('/app/transcribe/');
+        const eventSource = new EventSource('/on/transcribe/');
 
         eventSource.onmessage = (event) => {
             transcriptionText.value += event.data + ' ';
@@ -63,7 +63,7 @@
             eventSource.close();
         };
 
-        fetch('/app/transcribe/', {
+        fetch('/on/transcribe/', {
             method: 'POST',
             body: audioBlob
         }).then(response => {

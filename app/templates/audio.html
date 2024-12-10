@@ -76,7 +76,7 @@
             const formData = new FormData();
             formData.append('file', audioBlob, 'recording.wav');
 
-            const response = await fetch('/app/transcribe/', {
+            const response = await fetch('/on/transcribe/', {
                 method: 'POST',
                 body: formData,
             });

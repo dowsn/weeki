@@ -1,38 +1,22 @@
 { pkgs }: {
   deps = [
-    pkgs.graphicsmagick-imagemagick-compat
-    pkgs.openssl
-    pkgs.python311Packages.daphne
-    pkgs.postgresql
-    pkgs.postgresql_16_jit
-    pkgs.sqlite-interactive
+    pkgs.bash
     pkgs.python310
     pkgs.python310Packages.pip
-    pkgs.python310Packages.virtualenv
-    pkgs.ffmpeg 
-    pkgs.nvidia-podman
-    pkgs.linuxHeaders
-    pkgs.portaudio
-    pkgs.gettext
-    pkgs.zlib
-    pkgs.tk
-    pkgs.tcl
-    pkgs.openjpeg
-    pkgs.libxcrypt
-    pkgs.libwebp
-    pkgs.libtiff
-    pkgs.libjpeg
-    pkgs.libimagequant
-    pkgs.lcms2
-    pkgs.freetype
+    pkgs.python310Packages.daphne
+    pkgs.postgresql
+    pkgs.sqlite-interactive
+    pkgs.openssl
+    pkgs.libffi
+    pkgs.pkg-config
   ];
-
-  shellHook = ''
-    if [ ! -d .venv ]; then
-      virtualenv .venv
-    fi
-    source .venv/bin/activate
-    pip install --upgrade pip
-    pip install -r requirements.txt
-  '';
+  env = {
+    PYTHONPATH = "$HOME/.local/lib/python3.10/site-packages:$HOME/.pythonlibs/lib/python3.10/site-packages:${pkgs.python310}/lib/python3.10/site-packages:$PYTHONPATH";
+    LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+      pkgs.libffi
+      pkgs.openssl
+    ];
+    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+    PIP_USER = "1";
+  };
 }

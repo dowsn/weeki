@@ -1,0 +1,35 @@
+{% load static %}
+
+<div id="topicModal" class="topic-modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <form id="topicModalForm">
+      <input type="hidden" id="topicId">
+      <div class="mb-3">
+        <label for="topicName" class="form-label">Name</label>
+        <input type="text" class="form-control" id="topicName" required>
+      </div>
+      <div class="mb-3">
+        <label for="topicColor" class="form-label">Color</label>
+        <input type="color" class="form-control" id="topicColor" required>
+      </div>
+      <div class="mb-3">
+        <label for="topicDescription" class="form-label">Description</label>
+        <textarea class="form-control" id="topicDescription" rows="3" required></textarea>
+      </div>
+      {% if new == False %}
+      <div class="mb-3">
+        <label for="topicActive" class="form-label">Active</label>
+        <input type="checkbox" class="form-check-input" id="topicActive">
+      </div>
+      {% endif %}
+      <button type="submit" class="btn green-button">Save Topic</button>
+      {% if new == False %}
+      <button type="button" class="btn btn-danger" id="deleteTopicBtn">Delete Topic</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+
+

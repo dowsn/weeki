@@ -12,3 +12,12 @@ function getCookie(name) {
   }
   return cookieValue;
 }
+
+  
+function setCookie(name, value) {
+  const date = new Date();
+  date.setTime(date.getTime() + (365*24*60*60*1000)); // Set expiry to 1 year
+  const expires = "; expires=" + date.toUTCString();
+  document.cookie = name + "=" + (value || "") + expires + "; path=/";
+}
+  

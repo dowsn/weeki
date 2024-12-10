@@ -1,15 +1,18 @@
 $(document).ready(function() {
-    const categoryButtons = $('.category-button');
-    const categoryInput = $('input[name="category"]');
+    const topicButtons = $('.topic-button');
+    const topicInput = $('input[name="topic"]');
     const form = $('#editWeekiForm');
+    const week = form.attr('week');
+    const year = form.attr('year');
+    // const week = form.attr('week_id');
     const contentDiv = $('.editWeekiText');
     const csrfToken = $('[name=csrfmiddlewaretoken]').val();
 
-    categoryButtons.each(function() {
+    topicButtons.each(function() {
         $(this).on('click', function() {
-            categoryButtons.removeClass('active');
+            topicButtons.removeClass('active');
             $(this).addClass('active');
-            categoryInput.val($(this).data('category-id'));
+            topicInput.val($(this).data('topic-id'));
         });
     });
 
@@ -33,14 +36,14 @@ $(document).ready(function() {
                 'X-CSRFToken': csrfToken
             },
             success: function(data) {
-                if (data.success) {
-                    alert(data.message);
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
-                    }
+                if(data.success === true) {
+                   window.location.href = base_url + '/on/week' + '/' + year + '/' + week;
+                  successUrl.searchParams.append('success', 'true');
+                  window.location.href = successUrl.toString();
                 } else {
-                    alert('Error: ' + JSON.stringify(data.errors));
+                    console.log(data.message);
                 }
+               
             },
             error: function(xhr, status, error) {
                 console.error('Error:', error);
@@ -49,10 +52,24 @@ $(document).ready(function() {
         });
     }
 
+
+  $('#deleteButton').click(function() {
+      showPopup({
+          message: "Are you sure you want to delete this weeki?",
+          okText: "Delete",
+          cancelText: "Keep",
+          okCallback: function() {
+              submitForm('delete')
+              
+          },
+          cancelCallback: function() {
+              console.log("Action cancelled. Staying on the page.");
+          }
+      });
+  });
+
+  
+   
+
     $('#updateButton').on('click', function() { submitForm('update'); });
-    $('#deleteButton').on('click', function() {
-        if (confirm('Are you sure you want to delete this Weeki?')) {
-            submitForm('delete');
-        }
-    });
 });

@@ -1,14 +1,125 @@
+<nav class="navbar">
+  <button class="navbar-toggle" aria-label="Toggle navigation">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+  <ul class="nav-list">
+    <li class="nav-item{% if request.path == '/' %} active{% endif %}"><a href="{% url 'home_2' %}" class="nav-link">Home</a></li>
+    <li class="nav-item{% if 'blog' in request.path %} active{% endif %}"><a href="{% url 'blog:list' %}" class="nav-link">Blog</a></li>
+    <li class="nav-item{% if request.path == '/about/' %} active{% endif %}"><a href="{% url 'about' %}" class="nav-link">About</a></li>
+    
+    {% if user.is_authenticated %}
+      <li class="nav-item"><a href="{% url 'app:week' %}" class="nav-link">App</a></li>
+    {% else %}
+      <li class="nav-item{% if request.path == '/accounts/login/' %} active{% endif %}"><a href="{% url 'accounts:login' %}" class="nav-link">Login</a></li>
+      <li class="nav-item{% if request.path == '/accounts/register/' %} active{% endif %}"><a href="{% url 'accounts:registration_start' %}" class="nav-link">Register</a></li>
+    {% endif %}
 
-  <div class="homeNavigation">
-      <div class="homeNavigationElement"><a href="{% url 'home' %}">Home</a></div>
+    
+  </ul>
+</nav>
 
-      <div class="homeNavigationElement"><a href="{% url 'blog:list' %}">Blog</a></div>
+<style>
+:root {
+  --main-lightest: #FFF9EB;
+  --main: #FFE5AD;
+  --main-darker: #FFC547;
+  --dark: #131A39;
+}
 
-      <div class="homeNavigationElement"><a href="{% url 'about' %}">About</a></div>
+.navbar {
+  background-color: var(--dark);
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
 
-        <div class="homeNavigationElement"><a href="{% url 'accounts:login' %}">Sign In</a></div>
-  
-        <div class="homeNavigationElement"><a href="{% url 'accounts:signup' %}">Register</a></div>
-      </div>
+.nav-list {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 
- 
+.nav-item {
+  margin: 0 0.5rem;
+}
+
+.nav-link {
+  color: var(--main-lightest);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover, .nav-item.active .nav-link {
+  background-color: var(--main-darker);
+  color: var(--dark);
+}
+
+.navbar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+.navbar-toggle span {
+  display: block;
+  width: 25px;
+  height: 3px;
+  background-color: var(--main-lightest);
+  margin: 5px 0;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .navbar-toggle {
+    display: block;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+  }
+
+  .nav-list {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .nav-list.show {
+    display: flex;
+  }
+
+  .nav-item {
+    margin: 0.5rem 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  .nav-link {
+    display: block;
+    padding: 0.75rem 1rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const navbarToggle = document.querySelector('.navbar-toggle');
+  const navList = document.querySelector('.nav-list');
+
+  navbarToggle.addEventListener('click', function() {
+    navList.classList.toggle('show');
+    this.classList.toggle('active');
+  });
+});
+</script>

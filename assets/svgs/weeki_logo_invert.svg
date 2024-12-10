@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Background rectangle -->
+  <rect x="0" y="0" width="1024" height="1024" rx="205" ry="205" fill="#131A39"/>
+  <!-- First column (deep navy blue) -->
+  <rect x="102" y="348" width="225" height="625" rx="112.5" ry="112.5" fill="#FFE5AD"/>
+  <!-- Middle column (deep navy blue) -->
+  <rect x="399" y="348" width="225" height="625" rx="112.5" ry="112.5" fill="#FFE5AD"/>
+  <!-- Last column (deep navy blue) with dot -->
+  <rect x="696" y="348" width="225" height="625" rx="112.5" ry="112.5" fill="#FFE5AD"/>
+  <circle cx="808.5" cy="164" r="112.5" fill="#FFE5AD"/>
+</svg>
+

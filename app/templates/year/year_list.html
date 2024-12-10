@@ -22,19 +22,32 @@
 </script>
 
 
-<div class="selectorContainer">
-  <select id="yearSelector" onchange="openYear()">
-      {% for year in years %}
-            <option {% if year.value == selected_year %} selected {% endif %} value="{{ year.value|replace_spaces_and_decimals }}">{{ year.value|replace_spaces_and_decimals }} - Year {{ year.index }}</option>
-      {% endfor %}
+<div class="twoButtons">
+  <button class="yearSelector selector-button" year="{{ selected_year.value|replace_spaces_and_decimals }}" onclick="togglePopup()">
+    {{ selected_year.value|replace_spaces_and_decimals }} - Year {{ selected_year.age }}
+  </button>
  
-  </select>
-  
+
   <a href="{% url 'app:year' %}">
       <button class="green-button">Now</button>
   </a>
-
 </div>
+
+    
+
+  <div id="popupContainer" class="popup-container" style="display: none;">
+    <div class="popup-content">
+
+      {% for year in years %}
+      <button class="option {% if year.value|replace_spaces_and_decimals == selected_year.value|replace_spaces_and_decimals %} selected-option {% endif %}" year="{{ year.value|replace_spaces_and_decimals }}">{{ year.value|replace_spaces_and_decimals }} - Year {{ year.index }}</button>
+      {% endfor %}
+        
+
+      
+      
+    </div>
+  </div>
+
 
 
 

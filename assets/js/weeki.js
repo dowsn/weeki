@@ -1,32 +1,78 @@
 $(document).ready(function() {
 
-  const favoriteStars = document.querySelectorAll('.favorite-star-input');
-  favoriteStars.forEach(star => {
-      star.addEventListener('change', function() {
-          // You can add any additional logic here
-          console.log('Favorite status:', this.checked);
+  $('.closeButton').click(function() {
+      showPopup({
+          message: "Are you sure you want to discard this weeki?",
+          okText: "Discard",
+          cancelText: "Keep",
+          okCallback: function() {
+
+              const full_url = `${base_url}/on/week`;
+              window.location.href = full_url;
+          },
+          cancelCallback: function() {
+              console.log("Action cancelled. Staying on the page.");
+          }
       });
   });
 
-  $('.newWeekiText').click();
-  // Resizing
+
+
+
   const $contentEditable = $('.newWeekiText');
+  const bottomBarHeight = 70; // Height of the bottom bar on mobile
+  const mobileBreakpoint = 768; // Typical breakpoint for mobile devices
+  const bottomPadding = 40; // Padding at the bottom of the content
+
   function adjustHeight() {
-    $contentEditable.height(`${$(window).height() - 100}px`);
+      const windowWidth = $(window).width();
+      const windowHeight = $(window).height();
+
+      if (windowWidth <= mobileBreakpoint) {
+          // Mobile layout
+          const safeHeight = windowHeight - bottomBarHeight;
+
+          $contentEditable.css({
+              'height': `${safeHeight}px`,
+              'max-height': `${safeHeight}px`,
+              'overflow-y': 'auto',
+              'padding-bottom': `${bottomPadding}px`,
+              'box-sizing': 'border-box'
+          });
+      } else {
+          // Desktop layout - reset to default or set a different height
+          $contentEditable.css({
+              'height': `${windowHeight}px`, 
+              'max-height': `${windowHeight}px`, 
+              'overflow-y': 'auto',
+              'padding-bottom': `${bottomPadding}px`,
+          });
+      }
   }
+
+  function autoScroll() {
+      $contentEditable.scrollTop($contentEditable[0].scrollHeight);
+  }
+
   adjustHeight();
   $(window).on('resize', adjustHeight);
 
+  // Auto-scroll on input
+  $contentEditable.on('input', function() {
+      autoScroll();
+  });
+
+  // Set focus on load
+  $contentEditable.focus();
+
+  // Remove the mousedown event handler that was preventing selection
+  // $contentEditable.off('mousedown');
+
   // Form submission
   const $form = $('form');
-  const $hiddenInput = $('<input>', {
-    type: 'hidden',
-    name: 'content'
-  });
-  $form.append($hiddenInput);
+
 
   function submitForm() {
-    $hiddenInput.val($contentEditable.html());
     $form[0].submit(); // Use native form submission to avoid jQuery's recursive submit
   }
 
@@ -62,11 +108,10 @@ $(document).ready(function() {
   let lastTranscriptLength = 0;
 
   function updateTranscriptDisplay() {
-    let existingContent = $transcriptContainer.html();
+    let existingContent = $transcriptContainer.text();
 
     // Remove any existing interim span
-    existingContent = existingContent.replace(/<span class="interim">.*?<\/span>/, '');
-
+    existingContent = existingContent.replace(/\*\*.*?\*\*/g, '');
     // Trim any trailing spaces
     existingContent = existingContent.trim();
 
@@ -84,7 +129,10 @@ $(document).ready(function() {
     lastTranscriptLength = newContent.length;
 
     if (interimTranscript) {
-      newContent += ' <span class="interim">' + interimTranscript + '</span>';
+      newContent += 
+        '**' 
+        + interimTranscript
+        + '**';
     }
 
     $transcriptContainer.html(existingContent + newContent);
@@ -180,6 +228,8 @@ $(document).ready(function() {
   function initializeWebSocket() {
     const host = window.location.hostname;
     socket = new WebSocket('wss://' + host + '/listen');
+    console.log("WebSocket connection established");
+    console.log(host);
     socket.onopen = () => {
       console.log({event: 'onopen'});
       $recordButton.prop('disabled', false);
@@ -218,21 +268,21 @@ $(document).ready(function() {
 
   
   // Get the current date
-  // Category selection
+  // Topic selection
     const $editForm = $('#editWeekiForm');
-    const $categoryButtons = $('.category-button');
-    const $categoryInput = $('#id_category');
+    const $topicButtons = $('.topic-button');
+    const $topicInput = $('#id_topic');
 
-    $categoryButtons.on('click', function() {
-      $categoryButtons.removeClass('active');
+    $topicButtons.on('click', function() {
+      $topicButtons.removeClass('active');
       $(this).addClass('active');
-      $categoryInput.val($(this).data('category-id'));
+      $topicInput.val($(this).data('topic-id'));
     });
 
-    // Set initial category value
-    const $activeButton = $('.category-button.active');
+    // Set initial topic value
+    const $activeButton = $('.topic-button.active');
     if ($activeButton.length) {
-      $categoryInput.val($activeButton.data('category-id'));
+      $topicInput.val($activeButton.data('topic-id'));
     }
 
  

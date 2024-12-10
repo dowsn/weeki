@@ -1,0 +1,9 @@
+<div class="topic-item" data-id="{{ topic.id }}" style="background-color: {{ topic.color }};">
+    <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+    <h3>{{ topic.name }}</h3>
+    <div class="topic-actions">
+        <button class="edit-btn" onclick="openTopicModal({{ topic.id }})">
+            <i class="fas fa-edit"></i>
+        </button>
+    </div>
+</div>

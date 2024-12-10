@@ -1,0 +1,288 @@
+/* profile form */
+
+.small-button-holder {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.small-button {
+  width: 30px;
+  height: 30px;
+  padding: 0px;
+  border-radius: 999px;
+}
+
+.profile-text {
+  flex: 2;
+  color: var(--dark);
+}
+
+.profile-image {
+  flex: 1;
+  border-radius: var(--horizontal-spacing-half);
+  min-width: 100px;
+  min-heigh: 100px;
+  max-width: 300px;
+  max-height: 300px;
+  margin: auto;
+  overflow: hidden;  /* Add this line */
+}
+
+.profile-icon {
+  margin-left: auto;
+  margin-right: 13px;
+}
+
+profile-name {
+  
+}
+
+.profile-bar-inside {
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: row;
+}
+
+.profile-bar > * + * {
+}
+
+.profile-bar-inside > * + * {
+  margin-left: 20px;
+}
+
+.profile-image img {
+  object-fit: cover;
+  width: 100%;  /* Add this line */
+  height: 100%;  /* Add this line */
+}
+
+.profile-edit-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.profile-edit-container h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.profile-bar > a {
+  margin: auto
+}
+
+h1 > span {
+  font-size: var(--big-font-size);
+}
+.profile-name h1 {
+  display: flex;
+  align-items: center;
+}
+
+.profile-name h1 span {
+  margin-right: 8px; /* Adjust this value to control spacing between text and icon */
+}
+
+.profile-name svg {
+  width: 40px; /* Adjust the size as needed */
+  height: 40px;
+}
+
+
+.profile-form .form-group {
+  margin-bottom: 20px;
+}
+
+.profile-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+.profile-form input[type="text"],
+.profile-form input[type="number"],
+.profile-form input[type="date"],
+.profile-form input[type="time"],
+.profile-form select,
+.profile-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.profile-form input[type="file"] {
+  border: none;
+}
+
+.profile-form input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.submit-button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.submit-button:hover {
+  background-color: #0056b3;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+/*  */
+
+
+
+
+.progress-bar, .topic-bar, .homepage-link {
+  margin: 10px 0px;
+  background-color: var(--main-lightest);
+  margin: auto;
+  border-radius: 999px;
+  padding: 15px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-right: 10px;
+  margin-left: 10px;
+}
+
+.topic-bar {
+  margin-bottom: var(--horizontal-spacing-half);
+}
+
+h1 {
+  color: var(--dark) !important;
+}
+
+.progress-bar {
+  margin-top: var(--horizontal-spacing);
+  margin-bottom: var(--horizontal-spacing);
+}
+
+.homepage-link {
+  background-color: var(--main);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  margin-top: var(--horizontal-spacing);
+  display: flex;
+  margin-bottom: 0px;
+  cursor: pointer;
+ 
+}
+
+.two-big-buttons {
+  display: flex;
+  margin-bottom: 120px;
+}
+
+
+
+.two-big-buttons > * + * {
+  margin-righ: 10px;
+}
+
+.two-big-buttons > * {
+  width: 100%
+}
+
+.homepage-link > svg {
+  width: 30px;
+  margin-right: 10px;
+}
+
+
+
+
+
+.profile-bar {
+  margin: 10px 0px;
+  background-color: var(--main);
+  margin: auto;
+  border-radius: var(--horizontal-spacing-half);
+  padding: 15px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, .2);
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--horizontal-spacing);
+  margin-bottom: var(--horizontal-spacing);
+  margin-right: 10px;
+  margin-left: 10px;
+  
+}
+
+
+
+
+
+.topic-text {
+  padding-left: 10px;
+  
+}
+
+.topic-bar {
+  background-color: var(--main)
+}
+
+.buttons-in {
+  display: flex;
+  justify-content: center;
+  width: 100px;
+}
+
+.buttons-in > * + * {
+  margin-left: 10px;
+}
+
+.progress-bar-fill {
+  display: block;
+  height: 30px;
+  background-color: var(--main);
+  border-radius: 999px;
+  transition: width 500ms ease-in-out;
+}
+
+.external-link-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #3490dc;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.external-link-button:hover {
+  background-color: #2779bd;
+}
+
+.external-link-button svg {
+  margin-left: 8px;
+  width: 16px;
+  height: 16px;
+}
