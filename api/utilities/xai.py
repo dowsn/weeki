@@ -26,7 +26,7 @@ class EnhancedChatXAI:
 
   def __init__(
       self,
-      model: str = "grok-beta",
+      model: str = "grok-2-1212",
       temperature: float = 0.7,
       max_tokens: Optional[int] = None,
       logprobs: Optional[bool] = None,

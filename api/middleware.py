@@ -23,9 +23,16 @@ class SecurityMiddleware(MiddlewareMixin):
   def process_request(self, request):
     # Skip security for token refresh and login endpoints
     EXEMPT_PATHS = [
-        '/api',
+        # '/api',
         '/api/token/refresh/',
+        '/api/send_activation_code',
+        '/api/activate_profile',
+        '/api/reset_password',
         '/api/login',
+        '/api/model_test',
+        '/api/test_mail',
+        '/api/cron_reminder',
+        '/static/fonts/VarelaRound-Regular.woff',
         '/api/register',
         '/admin',
         '/media/',
@@ -47,6 +54,8 @@ class SecurityMiddleware(MiddlewareMixin):
 
       # Validate token
       token = auth_header.split(' ')[1]
+      print("request token")
+      print(token)
       try:
         token_obj = AccessToken(token)
         token_user_id = token_obj['user_id']

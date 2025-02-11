@@ -73,7 +73,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'app.middleware.ProfileLanguageMiddleware',
     'app.middleware.AppLoginRequiredMiddleware',
     'django_project.middleware.Custom404Middleware'
 ]
@@ -296,17 +295,23 @@ LOGGING = {
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-
-
 # Stripe Configuration
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
-
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.your-email-provider.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.zoho.eu')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
+EMAIL_USE_SSL = True  # Change this from TLS to SSL
+EMAIL_USE_TLS = False  # Make sure TLS is False
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@weeki.ai')
+
+PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY', '')
+PINECONE_INDEX_NAME = os.environ.get('PINECONE_INDEX_NAME', '')
+PINECONE_ENVIRONMENT = os.environ.get('PINECONE_ENVIRONMENT', '')
+
+SHOW_ADMIN_DATA = False

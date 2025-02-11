@@ -53,7 +53,7 @@
         const statusDiv = document.getElementById('status');
         let currentResponse = '';
         let userId = {{userId}};
-        let model = "{{model}}";
+        let chat_session_id = "{{chat_session_id}}";
         // Get the current host from the browser
         const host = window.location.hostname;
         const port = window.location.port;
@@ -64,9 +64,11 @@
         console.log(`Host: ${host}`);
         console.log(`Port: ${port}`);
         console.log(`Protocol: ${wsProtocol}`);
-        
+
+        console.log('chat_session_id', chat_session_id)
+        console.log('userId', userId);
         // Create WebSocket connection
-        const wsUrl = `${wsProtocol}//${host}:${port}/ws/api/chat/${userId}/${model}`;
+        const wsUrl = `${wsProtocol}//${host}:${port}/ws/api/chat/${userId}/${chat_session_id}`;
         console.log(`WebSocket URL: ${wsUrl}`);
         const ws = new WebSocket(wsUrl);
         

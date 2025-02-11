@@ -6,12 +6,263 @@ from django.utils import timezone
 from django.conf import settings
 import uuid
 import os
+import secrets
+import hashlib
 from functools import partial
+from datetime import date
+from datetime import timedelta
+from cryptography.fernet import Fernet
+import base64
+
+
+class EncryptedField(models.Field):
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+  def get_fernet(self):
+    key = settings.ENCRYPTION_KEY.encode()
+    key = base64.urlsafe_b64encode(key.ljust(32)[:32])
+    return Fernet(key)
+
+  def get_prep_value(self, value):
+    if value is None:
+      return value
+    f = self.get_fernet()
+    return f.encrypt(str(value).encode()).decode()
+
+  def from_db_value(self, value, expression, connection):
+    if value is None:
+      return value
+    f = self.get_fernet()
+    return f.decrypt(value.encode()).decode()
+
+  def db_type(self, connection):
+    return 'text'  # Store encrypted data as text
+
+
+class EncryptedTextField(EncryptedField):
+
+  def db_type(self, connection):
+    return 'text'
+
+
+class EncryptedCharField(EncryptedField):
+
+  def db_type(self, connection):
+    return 'varchar(500)'  # Encrypted data needs more space
+
+
+class EncryptedEmailField(EncryptedField):
+
+  def db_type(self, connection):
+    return 'varchar(500)'
+
+
+class Profile(models.Model):
+  user = models.OneToOneField(User, on_delete=models.CASCADE)
+  email = EncryptedEmailField(max_length=100, blank=True)
+  date_of_birth = EncryptedTextField(default='2000-01-01')
+  tokens = models.IntegerField(default=4)
+  reminder = models.BooleanField(choices=[(True, 'True'), (False, 'False')],
+                                 default=True)
+  subscription_date = models.DateField(null=True, blank=True)
+  activation_token = EncryptedCharField(max_length=100, blank=True, null=True)
+  character = EncryptedTextField(blank=True, null=True, max_length=2000)
+  activated = models.BooleanField(default=False)
+  welcome_mail_sent = models.BooleanField(default=False)
+
+  def __str__(self):
+    return str(self.user)
+
+  def get_user_profile(user_id):
+    try:
+      user = User.objects.get(pk=user_id)
+      return user.profile
+    except User.DoesNotExist:
+      return None
+    except Profile.DoesNotExist:
+      return None
+
+
+class Chat_Session(models.Model):
+  id = models.AutoField(primary_key=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  time_left = models.IntegerField(default=60)
+  date = models.DateField(default=date.today)
+  reminder_sent= models.BooleanField(default=False)
+  first = models.BooleanField(default=False)
+  title = EncryptedCharField(max_length=100, blank=True, null=True)
+  summary = EncryptedTextField(blank=True, null=True, max_length=500)
+  chars_since_check = models.IntegerField(default=0)
+
+  def __str__(self):
+    if hasattr(self.user, 'username'):
+      return f"{self.date} - {self.user.username}"
+    else:
+      return f"{self.date} - Unknown Username"
+
+
+  
+
+class Message(models.Model):
+  id = models.AutoField(primary_key=True)
+  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+  content = EncryptedTextField(max_length=500, blank=True)
+  date_created = models.DateTimeField(default=timezone.now)
+  role = models.CharField(max_length=10,
+                          choices=[('user', 'User'),
+                                   ('assistant', 'Assistant')])
+
+  def __str__(self):
+    return f"{self.date_created}"
+
+
+class Topic(models.Model):
+
+  STATUS_CHOICES = [
+    (0, 'No'),
+    (1, 'Cache'),
+    (2, 'Current'),
+  ]
+
+  currrent_session_status = models.IntegerField(default=0, choices=STATUS_CHOICES)
+
+  id = models.AutoField(primary_key=True)
+  name = EncryptedCharField(max_length=200)
+  confidence = models.FloatField(default=0.0)
+  description = EncryptedTextField(max_length=2000, blank=True)
+  user = models.ForeignKey(User,
+                           null=True,
+                           blank=True,
+                           on_delete=models.SET_NULL,
+                           default=1)
+  active = models.BooleanField(default=True)
+  date_created = models.DateField(auto_now_add=True, null=True)
+  date_updated = models.DateField(auto_now=True, null=True)
+
+  def __str__(self):
+    return self.name
+
+  class Meta:
+    verbose_name_plural = "Topics"
+
+class Log(models.Model):
+  id = models.AutoField(primary_key=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+  date = models.DateField(default=date.today)
+  topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+  text = EncryptedTextField(max_length=500, blank=True)
+
+
+class PastCharacters(models.Model):
+  id = models.AutoField(primary_key=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  character = EncryptedTextField(max_length=2000, blank=True)
+  date_created = models.DateField(auto_now_add=True, null=True)
+
+
+class PastTopics(models.Model):
+  id = models.AutoField(primary_key=True)
+  topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+  description = EncryptedTextField(max_length=2000, blank=True)
+  title = EncryptedTextField(max_length=2000, blank=True)
+  date_created = models.DateField(auto_now_add=True, null=True)
+
+
+# class EncryptedUserFields(models.Model):
+#     user = models.OneToOneField(User, on_delete=models.CASCADE)
+#     first_name = EncryptedCharField(max_length=150, blank=True)
+#     last_name = EncryptedCharField(max_length=150, blank=True)
+#     email = EncryptedEmailField(max_length=254)
+#     username = EncryptedCharField(max_length=150)
+
+#     def __str__(self):
+#         return self.user.username
+
+# @receiver(post_save, sender=User)
+# def create_or_update_encrypted_fields(sender, instance, created, **kwargs):
+#     if created:
+#         EncryptedUserFields.objects.create(
+#             user=instance,
+#             first_name=instance.first_name,
+#             last_name=instance.last_name,
+#             email=instance.email,
+#             username=instance.username
+#         )
+#     else:
+#         try:
+#             instance.encrypteduserfields.save()
+#         except EncryptedUserFields.DoesNotExist:
+#             EncryptedUserFields.objects.create(
+#                 user=instance,
+#                 first_name=instance.first_name,
+#                 last_name=instance.last_name,
+#                 email=instance.email,
+#                 username=instance.username
+# )
 
 
 def get_upload_path(folder_name, instance, filename):
   ext = filename.split('.')[-1]
   return os.path.join('images', folder_name, f'{uuid.uuid4().hex}.{ext}')
+
+
+class ProfileActivationToken(models.Model):
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  token_hash = models.CharField(max_length=64)
+  created_at = models.DateTimeField(auto_now_add=True)
+  expires_at = models.DateTimeField()
+  used = models.BooleanField(default=False)
+  attempt_count = models.IntegerField(default=0)
+
+  class Meta:
+    indexes = [
+        models.Index(fields=['user', 'token_hash', 'used']),
+    ]
+
+  @classmethod
+  def generate_token(cls, user):
+    cls.objects.filter(user=user).delete()
+    # Generate 6-digit numeric token
+    token = ''.join(secrets.choice('0123456789') for _ in range(6))
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    expires_at = timezone.now() + timedelta(hours=24)
+    activation_token = cls.objects.create(user=user,
+                                          token_hash=token_hash,
+                                          expires_at=expires_at)
+    return token, activation_token
+
+  @classmethod
+  def verify_token(cls, token, user):
+    MAX_ATTEMPTS = 5
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    try:
+      activation_token = cls.objects.get(user=user,
+                                         token_hash=token_hash,
+                                         used=False,
+                                         expires_at__gt=timezone.now())
+
+      if activation_token.attempt_count >= MAX_ATTEMPTS:
+        activation_token.used = True
+        activation_token.save()
+        return False, "Maximum verification attempts exceeded"
+
+      activation_token.attempt_count += 1
+
+      if activation_token.attempt_count >= MAX_ATTEMPTS:
+        activation_token.used = True
+
+      if activation_token.attempt_count < MAX_ATTEMPTS:
+        activation_token.used = True  # Mark as used on successful verification
+
+      activation_token.save()
+      return True, "Token verified successfully"
+
+    except cls.DoesNotExist:
+      return False, "Invalid or expired token"
 
 
 class Language(models.Model):
@@ -24,6 +275,85 @@ class Language(models.Model):
     return str(self.name)
 
 
+# class Profile(models.Model):
+
+#   user = models.OneToOneField(User, on_delete=models.CASCADE)
+#   email = models.EmailField(max_length=100, blank=True)
+#   date_of_birth = models.DateField(default='2000-01-01')
+#   tokens = models.IntegerField(default=4)
+#   reminder = models.BooleanField(choices=[(True, 'True'), (False, 'False')],
+#                                  default=True)
+#   subscription_date = models.DateField(null=True, blank=True)
+#   activation_token = models.CharField(max_length=100, blank=True, null=True)
+#   character = models.TextField(blank=True, null=True, max_length=2000)
+#   activated = models.BooleanField(default=False)
+#   welcome_mail_sent = models.BooleanField(default=False)
+
+# class Chat_Session(models.Model):
+#   id = models.AutoField(primary_key=True)
+#   user = models.ForeignKey(User, on_delete=models.CASCADE)
+#   time_left = models.IntegerField(default=60)
+#   date = models.DateField(default=date.today)
+#   first = models.BooleanField(default=False)
+#   title = models.CharField(max_length=100, blank=True, null=True)
+#   summary = models.TextField(blank=True, null=True, max_length=500)
+
+#   # active = models.BooleanField(default=True)
+
+# class Message(models.Model):
+#   id = models.AutoField(primary_key=True)
+#   chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+#   content = models.TextField(max_length=500, blank=True)
+#   date_created = models.DateTimeField(default=timezone.now)
+#   role = models.CharField(max_length=10,
+#                           choices=[('user', 'User'),
+#                                    ('assistant', 'Assistant')])
+
+# class Topic(models.Model):
+#   id = models.AutoField(primary_key=True)
+#   name = models.CharField(max_length=200)
+#   description = models.TextField(max_length=2000, blank=True)
+#   user = models.ForeignKey(User,
+#                            null=True,
+#                            blank=True,
+#                            on_delete=models.SET_NULL,
+#                            default=1)
+#   active = models.BooleanField(default=True)
+#   date_created = models.DateField(auto_now_add=True, null=True)
+#   date_updated = models.DateField(auto_now=True, null=True)
+
+# class PastCharacters(models.Model):
+#   id = models.AutoField(primary_key=True)
+#   user = models.ForeignKey(User, on_delete=models.CASCADE)
+#   character = models.TextField(max_length=2000, blank=True)
+#   date_created = models.DateField(auto_now_add=True, null=True)
+
+# class PastTopics(models.Model):
+#   id = models.AutoField(primary_key=True)
+#   topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+#   description = models.TextField(max_length=2000, blank=True)
+#   title = models.TextField(max_length=2000, blank=True)
+#   date_created = models.DateField(auto_now_add=True, null=True)
+
+
+class ErrorLog(models.Model):
+  timestamp = models.DateTimeField(default=timezone.now)
+  url = models.URLField(max_length=255)
+  error_message = models.TextField()
+  stack_trace = models.TextField(blank=True, null=True)
+  user = models.ForeignKey('auth.User',
+                           on_delete=models.SET_NULL,
+                           null=True,
+                           blank=True)
+  additional_data = models.JSONField(blank=True, null=True)
+
+  def __str__(self):
+    return f"{self.timestamp} - {self.url} - {self.error_message[:50]}"
+
+
+# TO BE DELETED
+
+
 class AIModel(models.Model):
   id = models.AutoField(primary_key=True)
   name = models.CharField(max_length=100)
@@ -31,33 +361,6 @@ class AIModel(models.Model):
 
   def __str__(self):
     return f"{self.name}"
-
-
-class Prompt(models.Model):
-  id = models.AutoField(primary_key=True)
-  name = models.CharField(max_length=100)
-  temperature = models.FloatField(default=0.5)
-  description = models.TextField(blank=True, null=True)
-  max_tokens = models.IntegerField(default=1000)
-  model = models.ForeignKey(AIModel, on_delete=models.CASCADE, null=True)
-
-  def __str__(self):
-    return f"{self.name} - {self.model.description}"
-
-
-class Meeting(models.Model):
-  user = models.ForeignKey(User, on_delete=models.CASCADE)
-  date = models.DateTimeField(auto_now_add=True)
-
-
-class Prompt_Debug(models.Model):
-  prompt = models.ForeignKey(Prompt, on_delete=models.DO_NOTHING)
-  request = models.TextField(blank=True, null=True)
-  response = models.TextField(blank=True, null=True)
-  date_created = models.DateTimeField(default=timezone.now)
-
-  def __str__(self):
-    return f"{self.date_created} - {self.prompt.name}"
 
 
 class Translation(models.Model):
@@ -84,119 +387,73 @@ class Translation(models.Model):
       return key  # Return the key if translation is not found
 
 
-class Profile(models.Model):
-  FINAL_AGE_CHOICES = [(27, '27'), (50, '50'), (60, '60'), (70, '70'),
-                       (80, '80'), (90, '90'), (100, '100'), (120, '120')]
-
-  user = models.OneToOneField(User, on_delete=models.CASCADE)
-  bio = models.TextField(max_length=500, blank=True)
-  email = models.EmailField(max_length=100, blank=True)
-  date_of_birth = models.DateField(default='2000-01-01')
-  final_age = models.IntegerField(choices=FINAL_AGE_CHOICES, default=80)
-  tokens = models.IntegerField(default=4)
-  language = models.ForeignKey('Language',
-                               on_delete=models.CASCADE,
-                               default=1,
-                               null=True)
-  reminder = models.BooleanField(choices=[(True, 'True'), (False, 'False')],
-                                 default=True)
-  image = models.ImageField(upload_to=partial(get_upload_path, 'profiles'),
-                            blank=True,
-                            null=True)
-
-  def __str__(self):
-    return str(self.user)
-
-  def get_user_profile(user_id):
-    try:
-      user = User.objects.get(pk=user_id)
-      return user.profile
-    except User.DoesNotExist:
-      return None
-    except Profile.DoesNotExist:
-      return None
-
-
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-  if created:
-    Profile.objects.get_or_create(user=instance)
-
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
-  instance.profile.save()
-
-
-class Chat_Session(models.Model):
-  id = models.AutoField(primary_key=True)
+class PasswordResetToken(models.Model):
   user = models.ForeignKey(User, on_delete=models.CASCADE)
-  date_created = models.DateTimeField(default=timezone.now)
-  date_updated = models.DateTimeField(default=timezone.now)
+  token_hash = models.CharField(max_length=64)  # SHA-256 hash
+  created_at = models.DateTimeField(auto_now_add=True)
+  expires_at = models.DateTimeField()
+  used = models.BooleanField(default=False)
 
-  def __str__(self):
-    return f"{self.date_created}"
+  @classmethod
+  def generate_token(cls, user):
+    cls.objects.filter(user=user).delete()
+    # Generate 6-digit numeric token
+    token = ''.join(secrets.choice('0123456789') for _ in range(6))
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    expires_at = timezone.now() + timedelta(hours=24)
+    activation_token = cls.objects.create(user=user,
+                                          token_hash=token_hash,
+                                          expires_at=expires_at)
+    return token, activation_token
+
+  @classmethod
+  def verify_token(cls, token, user):
+    # Hash the provided token
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    # Find valid token
+    try:
+      reset_token = cls.objects.get(user=user,
+                                    token_hash=token_hash,
+                                    used=False,
+                                    expires_at__gt=timezone.now())
+      reset_token.used = True
+      reset_token.save()
+      return True
+    except cls.DoesNotExist:
+      return False
 
 
-class Message(models.Model):
+class Prompt(models.Model):
   id = models.AutoField(primary_key=True)
-  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
-  content = models.TextField(max_length=500, blank=True)
+  name = models.CharField(max_length=100)
+  temperature = models.FloatField(default=0.5)
+  description = models.TextField(blank=True, null=True)
+  max_tokens = models.IntegerField(default=1000)
+  model = models.ForeignKey(AIModel, on_delete=models.CASCADE, null=True)
+
+  def __str__(self):
+    return f"{self.name} - {self.model.description}"
+
+
+class Prompt_Debug(models.Model):
+  prompt = models.ForeignKey(Prompt, on_delete=models.DO_NOTHING)
+  request = models.TextField(blank=True, null=True)
+  response = models.TextField(blank=True, null=True)
   date_created = models.DateTimeField(default=timezone.now)
-  role = models.CharField(max_length=10,
-                          choices=[('user', 'User'),
-                                   ('assistant', 'Assistant')])
 
   def __str__(self):
-    return f"{self.date_created}"
-
-
-class Topic(models.Model):
-  id = models.AutoField(primary_key=True)
-  name = models.CharField(max_length=200)
-  description = models.TextField(max_length=500, blank=True)
-  user = models.ForeignKey(User,
-                           null=True,
-                           blank=True,
-                           on_delete=models.SET_NULL,
-                           default=1)
-  active = models.BooleanField(default=True)
-  ordering = models.IntegerField(default=0)
-  date_created = models.DateTimeField(auto_now_add=True, null=True)
-  image = models.ImageField(upload_to=partial(get_upload_path, 'topics'),
-                            blank=True,
-                            null=True)
-
-  def __str__(self):
-    return self.name
-
-  class Meta:
-    verbose_name_plural = "Topics"
+    return f"{self.date_created} - {self.prompt.name}"
 
 
 class Summary(models.Model):
   id = models.AutoField(primary_key=True)
   content = models.TextField(max_length=500, blank=True)
   topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
-  date_created = models.DateTimeField(auto_now_add=True, null=True)
+  date = models.DateTimeField(auto_now_add=True, null=True)
 
   def __str__(self):
     return f"{self.date_created}"
-
-
-class ErrorLog(models.Model):
-  timestamp = models.DateTimeField(default=timezone.now)
-  url = models.URLField(max_length=255)
-  error_message = models.TextField()
-  stack_trace = models.TextField(blank=True, null=True)
-  user = models.ForeignKey('auth.User',
-                           on_delete=models.SET_NULL,
-                           null=True,
-                           blank=True)
-  additional_data = models.JSONField(blank=True, null=True)
-
-  def __str__(self):
-    return f"{self.timestamp} - {self.url} - {self.error_message[:50]}"
 
 
 class AppFeedback(models.Model):
@@ -244,9 +501,6 @@ class AppFeedback(models.Model):
 
   user_comment = models.TextField(verbose_name="Any additional comments?",
                                   blank=True)
-
-
-# TO BE DELETED
 
 
 class Year(models.Model):

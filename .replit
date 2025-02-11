@@ -8,8 +8,13 @@ channel = "stable-23_11"
 run = [
   "sh",
   "-c",
-  "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
+  "watchfiles --reload-signal SIGHUP 'python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
 ]
+
+# run = "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application"
+
+
+
 deploymentTarget = "cloudrun"
 
 

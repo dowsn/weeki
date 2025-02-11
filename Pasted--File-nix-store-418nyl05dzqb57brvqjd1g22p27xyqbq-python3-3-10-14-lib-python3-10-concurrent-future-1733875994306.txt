@@ -1,0 +1,50 @@
+  File "/nix/store/418nyl05dzqb57brvqjd1g22p27xyqbq-python3-3.10.14/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/asgiref/sync.py", line 522, in thread_handler
+    return func(*args, **kwargs)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py", line 57, in inner
+    response = response_for_exception(request, exc)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py", line 140, in response_for_exception
+    response = handle_uncaught_exception(
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/core/handlers/exception.py", line 181, in handle_uncaught_exception
+    return debug.technical_500_response(request, *exc_info)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/views/debug.py", line 69, in technical_500_response
+    html = reporter.get_traceback_html()
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/views/debug.py", line 428, in get_traceback_html
+    c = Context(self.get_traceback_data(), use_l10n=False)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/views/debug.py", line 411, in get_traceback_data
+    c["raising_view_name"] = get_caller(self.request)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/views/debug.py", line 102, in get_caller
+    resolver_match = resolve(request.path)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/urls/base.py", line 24, in resolve
+    return get_resolver(urlconf).resolve(path)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/urls/resolvers.py", line 666, in resolve
+    for pattern in self.url_patterns:
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/utils/functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/urls/resolvers.py", line 718, in url_patterns
+    patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/utils/functional.py", line 47, in __get__
+    res = instance.__dict__[self.name] = self.func(instance)
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/django/urls/resolvers.py", line 711, in urlconf_module
+    return import_module(self.urlconf_name)
+  File "/nix/store/418nyl05dzqb57brvqjd1g22p27xyqbq-python3-3.10.14/lib/python3.10/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/runner/weeki/./django_project/urls.py", line 19, in <module>
+    from . import views
+  File "/home/runner/weeki/./django_project/views.py", line 3, in <module>
+    from app import views as app_views
+  File "/home/runner/weeki/./app/views.py", line 1, in <module>
+    from api.services import calculate_life_percentage, calculate_years_total, calculate_age, get_user_active_topics, get_user_inactive_topics, prepare_first_conversation_context, chat_with_nurmo, prepare_existing_conversation_context, get_build_context
+  File "/home/runner/weeki/./api/services.py", line 13, in <module>
+    from pinecone.grpc import PineconeGRPC as Pinecone
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/pinecone/grpc/__init__.py", line 47, in <module>
+    from .index_grpc import GRPCIndex
+  File "/home/runner/weeki/.pythonlibs/lib/python3.10/site-packages/pinecone/grpc/index_grpc.py", line 4, in <module>
+    from google.protobuf import json_format

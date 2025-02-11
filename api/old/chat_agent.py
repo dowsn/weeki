@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from django.http import StreamingHttpResponse
-from langchain_aws import ChatBedrockConverse
+# from langchain_aws import ChatBedrockConverse
 from langchain_core.output_parsers import StrOutputParser
 from langchain import hub
 import asyncio
@@ -27,18 +27,18 @@ class ConversationAgent:
 
     if (type == 'xai'):
       self.llm = ChatXAI(
-          model="grok-beta",
+          model="grok-2-1212",
           temperature=temperature,
           max_tokens=200,
       )
-    else:
-      self.llm = ChatBedrockConverse(
-          model=model,
-          temperature=temperature,
-          aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-          aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-          region_name="us-west-2",
-          max_tokens=200)
+    # else:
+    #   self.llm = ChatBedrockConverse(
+    #       model=model,
+    #       temperature=temperature,
+    #       aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    #       aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    #       region_name="us-west-2",
+    #       max_tokens=200)
 
     # Pull the prompt template from the hub
     self.prompt = hub.pull("chat_mr_week:02e4c2fd")

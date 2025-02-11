@@ -1,7 +1,8 @@
 from django.db.models import Prefetch
 from app.models import Original_Note, Topic, Weeki, Week, Profile, Conversation_Session, User, Prompt, Conversation, Sum
-from boto3.session import Session
+# from boto3.session import Session
 import os
+from django.core.mail import send_mail
 
 # from .serializers import TopicSerializer
 from django.utils import timezone
@@ -10,23 +11,260 @@ from rest_framework.response import Response
 import requests
 import boto3
 import json
-from pinecone.grpc import PineconeGRPC as Pinecone
+import re
+from typing import Tuple
+from django.core.mail import get_connection, EmailMessage
+from django.conf import settings
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from smtplib import SMTPException
+
+# from pinecone.grpc import PineconeGRPC as Pinecone
 
 from collections import defaultdict
 from datetime import datetime
 from .utilities.anthropic import AnthropicAPIUtility
-from nurmoai import NurmoAI
-import os
+# from nurmoai import NurmoAI
 from django.utils.safestring import mark_safe
 
 from django.db.models import F
 from django.core.serializers.json import DjangoJSONEncoder
-import json
 
-from deepgram import (
-    DeepgramClient,
-    SpeakOptions,
-)
+from rest_framework import serializers
+from rest_framework.utils.serializer_helpers import ReturnList, ReturnDict
+from django.db.models import QuerySet
+from typing import List, Dict, Any, Union
+from .serializers.chat_serializer import MessageSerializer
+from app.models import Message
+import logging
+
+# from deepgram import (
+#     DeepgramClient,
+#     SpeakOptions,
+# )
+
+#
+# getting messages from the database
+logger = logging.getLogger(__name__)
+
+
+class EmailService:
+  """Centralized email service for the application."""
+
+  @classmethod
+  def send_templated_email(cls, subject, template_path, context,
+                           recipient_email):
+    """
+      Send an HTML email using a template.
+
+      Args:
+          subject (str): Email subject
+          template_path (str): Path to the email template
+          context (dict): Context data for the template
+          recipient_email (str): Recipient's email address
+
+      Returns:
+          bool: True if email was sent successfully
+
+      Raises:
+          SMTPException: If there's an error sending the email
+      """
+    try:
+      # Render HTML content
+      html_content = render_to_string(template_path, context)
+      text_content = strip_tags(html_content)
+
+      # Send email
+      send_mail(
+          subject=subject,
+          message=text_content,
+          from_email=settings.DEFAULT_FROM_EMAIL,
+          recipient_list=[recipient_email],
+          html_message=html_content,
+          fail_silently=False,
+      )
+
+      return True
+
+    except SMTPException as e:
+      logger.error(f"SMTP Error sending email to {recipient_email}: {str(e)}")
+      raise
+    except Exception as e:
+      logger.error(
+          f"Unexpected error sending email to {recipient_email}: {str(e)}",
+          exc_info=True)
+      raise
+
+
+def get_chat_messages(
+    chat_session) -> Union[ReturnList, ReturnDict, List[Dict[Any, Any]]]:
+  """
+  Retrieve messages for a chat session, ordered by date descending.
+
+  Args:
+      chat_session: The chat session instance to fetch messages for
+
+  Returns:
+      ReturnList, ReturnDict, or empty list of serialized messages
+  """
+  try:
+    messages = Message.objects.filter(
+        chat_session=chat_session).order_by('date_created')
+
+    if messages:
+      return MessageSerializer(messages, many=True).data
+    return []
+
+  except Exception as e:
+    # Log the error appropriately in your logging system
+    logger.error(
+        f"Error fetching messages for chat session {chat_session.id}: {str(e)}"
+    )
+    return []
+
+
+def validate_email(email: str) -> Tuple[bool, str]:
+  """
+  Validates email address format.
+  Returns tuple (is_valid: bool, error_message: str)
+  """
+  issues = []
+
+  if not email or len(email) > 254:
+    issues.append("Email length must be between 1 and 254 characters")
+    return (False, "\n".join(issues))
+
+  # Basic pattern check
+  pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+  if not re.match(pattern, email):
+    issues.append("Invalid email format")
+    return (False, "\n".join(issues))
+
+  # Split into local and domain parts
+  local, domain = email.split('@')
+
+  if len(local) > 64:
+    issues.append("Local part must not exceed 64 characters")
+
+  if domain.endswith('.'):
+    issues.append("Domain cannot end with a dot")
+
+  if '..' in email:
+    issues.append("Email cannot contain consecutive dots")
+
+  if email.startswith('.'):
+    issues.append("Email cannot start with a dot")
+
+  return (len(issues) == 0, "\n".join(issues) if issues else "")
+
+
+def validate_username(username: str) -> Tuple[bool, str]:
+  """
+  Validates username against security criteria.
+  Returns tuple (is_valid: bool, error_message: str)
+  """
+  issues = []
+
+  if len(username) < 3:
+    issues.append("Username must be at least 3 characters")
+  if len(username) > 12:
+    issues.append("Username must be less than 12 characters")
+
+  if not username[0].isalpha():
+    issues.append("Username must start with a letter")
+
+  if not re.match("^[a-zA-Z0-9_.-]*$", username):
+    issues.append("Username can only contain letters, numbers, and ._-")
+
+  if re.search(r"\.{2,}|-{2,}|_{2,}", username):
+    issues.append(
+        "Username cannot contain consecutive dots, dashes or underscores")
+
+  return (len(issues) == 0, "\n".join(issues) if issues else "")
+
+
+def validate_password_strength(password: str) -> Tuple[bool, str]:
+  """
+    Validates password strength against multiple security criteria.
+
+    Args:
+        password: The password string to validate
+
+    Returns:
+        Tuple containing:
+        - Boolean indicating if password meets all criteria
+        - String message explaining any failed criteria (empty if password is valid)
+    """
+  issues = []
+
+  # Check minimum length (increased to 12 for better security)
+  if len(password) < 12:
+    issues.append("Password must be at least 12 characters long")
+
+  if len(password) > 20:
+    issues.append("Password is too long")
+
+  # Check for uppercase letters
+  if not re.search(r"[A-Z]", password):
+    issues.append("Password must contain at least one uppercase letter")
+
+  # Check for lowercase letters
+  if not re.search(r"[a-z]", password):
+    issues.append("Password must contain at least one lowercase letter")
+
+  # Check for numbers
+  if not re.search(r"[0-9]", password):
+    issues.append("Password must contain at least one number")
+
+  # Check for special characters (expanded set)
+  if not re.search(r"[!@#$%^&*(),.?\":{}|<>~`\-_=+\[\]/\\]", password):
+    issues.append("Password must contain at least one special character")
+
+  # Check for common patterns
+  if re.search(r"(.)\1{2,}", password):
+    issues.append(
+        "Password should not contain repeated characters (e.g., 'aaa')")
+
+  # Check for sequential characters
+  if any(
+      str(password).lower().find(seq) != -1 for seq in [
+          "123", "234", "345", "456", "567", "678", "789", "abc", "bcd", "cde",
+          "def", "efg", "fgh", "ghi", "hij", "ijk", "jkl", "klm", "lmn", "mno",
+          "nop", "opq", "pqr", "qrs", "rst", "stu", "tuv", "uvw", "vwx", "wxy",
+          "xyz"
+      ]):
+    issues.append(
+        "Password should not contain sequential characters (e.g., '123', 'abc')"
+    )
+
+  # Check for common words and patterns
+  common_patterns = ["password", "admin", "user", "login", "welcome", "qwerty"]
+  if any(pattern in password.lower() for pattern in common_patterns):
+    issues.append(
+        "Password contains common words or patterns that should be avoided")
+
+  # Check for minimum number of unique characters
+  if len(set(password)) < 8:
+    issues.append("Password should contain at least 8 unique characters")
+
+  # Calculate rough entropy score
+  char_sets = [
+      bool(re.search(r"[A-Z]", password)),  # uppercase
+      bool(re.search(r"[a-z]", password)),  # lowercase
+      bool(re.search(r"[0-9]", password)),  # digits
+      bool(re.search(r"[!@#$%^&*(),.?\":{}|<>~`\-_=+\[\]/\\]",
+                     password))  # special
+  ]
+  char_set_size = sum(96 if char_set else 0 for char_set in char_sets)
+  if char_set_size * len(password) < 1000:  # rough entropy threshold
+    issues.append(
+        "Password is not complex enough - try mixing more types of characters")
+
+  is_valid = len(issues) == 0
+  # Join all issues with newlines if there are any, otherwise return empty string
+  message = "\n".join(issues) if issues else ""
+
+  return is_valid, message
 
 
 def pinecone_upsert():
@@ -56,80 +294,79 @@ def pinecone_upsert():
                namespace="summaries")
 
 
-def get_embedding(text,
-                  region_name='us-west-2',
-                  model_id="amazon.titan-embed-text-v2:0"):
-  """
-Generate embeddings for input text using Amazon Bedrock Titan model
+# def get_embedding(text,
+#                   region_name='us-west-2',
+#                   model_id="amazon.titan-embed-text-v2:0"):
+#   """
+# Generate embeddings for input text using Amazon Bedrock Titan model
 
-Args:
-text (str): Input text to generate embeddings for
-aws_access_key_id (str): AWS access key ID
-aws_secret_access_key (str): AWS secret access key
-aws_session_token (str): AWS session token (optional)
-region_name (str): AWS region name
-model_id (str): Bedrock model ID to use
-Returns:
-list: Embedding vector
-"""
-  # Create a session with credentials
-  session = Session(aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                    aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
-                    region_name=region_name)
+# Args:
+# text (str): Input text to generate embeddings for
+# aws_access_key_id (str): AWS access key ID
+# aws_secret_access_key (str): AWS secret access key
+# aws_session_token (str): AWS session token (optional)
+# region_name (str): AWS region name
+# model_id (str): Bedrock model ID to use
+# Returns:
+# list: Embedding vector
+# """
+#   # Create a session with credentials
+#   session = Session(aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+#                     aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+#                     region_name=region_name)
 
-  # Initialize Bedrock client with session
-  bedrock = session.client(service_name='bedrock-runtime')
+#   # Initialize Bedrock client with session
+#   bedrock = session.client(service_name='bedrock-runtime')
 
-  # Prepare the request body
-  request_body = {"inputText": text}
+#   # Prepare the request body
+#   request_body = {"inputText": text}
 
-  body = json.dumps(request_body)
+#   body = json.dumps(request_body)
 
-  try:
-    # Call Bedrock API
-    response = bedrock.invoke_model(modelId=model_id, body=body)
+#   try:
+#     # Call Bedrock API
+#     response = bedrock.invoke_model(modelId=model_id, body=body)
 
-    # Parse response
-    response_body = json.loads(response['body'].read())
-    embedding = response_body['embedding']
+#     # Parse response
+#     response_body = json.loads(response['body'].read())
+#     embedding = response_body['embedding']
 
-    return embedding
+#     return embedding
 
-  except Exception as e:
-    print(f"Error generating embedding: {str(e)}")
-    return None
+#   except Exception as e:
+#     print(f"Error generating embedding: {str(e)}")
+#     return None
 
+# def run_flow(message,
+#              output_type="chat",
+#              input_type="chat",
+#              tweaks=None,
+#              langflow_id=None,
+#              application_token=None):
 
-def run_flow(message,
-             output_type="chat",
-             input_type="chat",
-             tweaks=None,
-             langflow_id=None,
-             application_token=None):
+#   BASE_API_URL = "https://api.langflow.astra.datastax.com"
+#   api_url = f"{BASE_API_URL}/lf/{langflow_id}/api/v1/run/first_message"
 
-  BASE_API_URL = "https://api.langflow.astra.datastax.com"
-  api_url = f"{BASE_API_URL}/lf/{langflow_id}/api/v1/run/first_message"
+#   payload = {
+#       "input_value": message,
+#       "output_type": output_type,
+#       "input_type": input_type,
+#   }
 
-  payload = {
-      "input_value": message,
-      "output_type": output_type,
-      "input_type": input_type,
-  }
+#   if tweaks:
+#     payload["tweaks"] = tweaks
 
-  if tweaks:
-    payload["tweaks"] = tweaks
+#   print(f"Payload: {payload}")
 
-  print(f"Payload: {payload}")
+#   headers = {"Content-Type": "application/json"}
 
-  headers = {"Content-Type": "application/json"}
+#   if application_token:
+#     headers["Authorization"] = f"Bearer {application_token}"
 
-  if application_token:
-    headers["Authorization"] = f"Bearer {application_token}"
+#   response = requests.post(api_url, json=payload, headers=headers)
 
-  response = requests.post(api_url, json=payload, headers=headers)
-
-  return response.json(
-  )['outputs'][0]['outputs'][0]['results']['message']['text']
+#   return response.json(
+#   )['outputs'][0]['outputs'][0]['results']['message']['text']
 
 
 def paginate_model(model_name, pagination, page, filter_kwargs=None):

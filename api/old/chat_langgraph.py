@@ -34,7 +34,7 @@ class ConversationAgent:
   def _initialize_llm(self, type: str, model: str, temperature: float):
     if type == 'xai':
       return ChatXAI(
-          model="grok-beta",
+          model="grok-2-1212",
           temperature=temperature,
           max_tokens=200,
       )

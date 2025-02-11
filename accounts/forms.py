@@ -54,29 +54,18 @@ class ProfileForm(forms.ModelForm):
     model = Profile
     fields = [
         'email',
-        'language',
-        'bio',
         'date_of_birth',
-        'final_age',
         # 'reminder_day', 'reminder_hour'
     ]
     widgets = {
         'email':
         forms.EmailInput(attrs={'class': 'form-control'}),
-        'language':
-        forms.Select(attrs={'class': 'form-control'}),
-        'bio':
-        forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 3
-        }),
         'date_of_birth':
         forms.DateInput(attrs={
             'type': 'date',
             'class': 'form-control'
         }),
-        'final_age':
-        forms.Select(attrs={'class': 'form-control'}),
+
         # 'reminder_day':
         # forms.Select(attrs={'class': 'form-control'}),
         # 'reminder_hour':
@@ -91,8 +80,7 @@ class ProfileForm(forms.ModelForm):
     # Make important fields required
     self.fields['email'].required = True
     self.fields['language'].required = True
-    self.fields['date_of_birth'].required = True
-    self.fields['final_age'].required = True
+    self.fields['date_of_birth'].required = False
 
   def clean_email(self):
     email = self.cleaned_data.get('email')

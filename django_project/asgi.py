@@ -15,8 +15,9 @@ from django.core.asgi import get_asgi_application
 import api.routing
 import app.routing
 
+# app.routing.websocket_urlpatterns
 # Combine the websocket_urlpatterns
-combined_patterns = app.routing.websocket_urlpatterns + api.routing.websocket_urlpatterns
+combined_patterns = api.routing.websocket_urlpatterns
 
 application = ProtocolTypeRouter({
     "http":

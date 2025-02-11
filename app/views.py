@@ -21,7 +21,7 @@ from django.contrib.auth import update_session_auth_hash
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from deepgram import Deepgram
+# from deepgram import Deepgram
 from django.conf import settings
 
 from django.contrib import messages
@@ -41,7 +41,7 @@ from django.http import HttpResponse
 from django.template.loader import get_template
 # from xhtml2pdf import pisa
 from .forms import NewWeekiForm, EditWeekiForm, ProfileFormLater, UserSettingsForm, TopicForm, PasswordChangeForm
-from jinja2 import Template
+# from jinja2 import Template
 from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -63,11 +63,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from deepgram import (
-    DeepgramClient,
-    LiveTranscriptionEvents,
-    LiveOptions,
-)
+# from deepgram import (
+#     DeepgramClient,
+#     LiveTranscriptionEvents,
+#     LiveOptions,
+# )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

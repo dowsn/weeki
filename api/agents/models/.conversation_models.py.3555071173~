@@ -1,0 +1,50 @@
+# models/conversation_state.py
+from datetime import datetime
+from enum import Enum
+from pydantic import BaseModel
+from typing import Optional, List, Dict
+
+
+class TopicState(BaseModel):
+    name: str
+    description: str
+    confidence: float
+    last_discussed: datetime
+
+class LogState(BaseModel):
+    date: date
+    text: str
+
+
+class ConversationState(BaseModel):
+  username: str  # Add this
+  conversation_context: str = ""
+  current_message: Optional[str] = None  # Add this
+  responses: List[str] = []  # Add this
+  current_topics: List[TopicState] = []
+  current_logs: List[Log] = []
+
+  potential_topic: Optional[TopicState] = None
+
+  cached_topics: List[TopicState] = []
+  character: str = ""
+
+  def add_message(self, message: str):
+      self.current_message = message
+      self.conversation_context += f"Human: {message}\n"
+
+  def add_response(self, response: str):
+      self.responses.append(response)
+      self.conversation_context += f"Assistant: {response}\n"
+
+ 
+    
+
+# class ConversationState(BaseModel):
+  
+#     high_engagement: bool = True
+#     needs_clarification: bool = False
+#     clarification_questions: Optional[List[str]] = None
+
+  
+

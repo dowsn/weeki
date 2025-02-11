@@ -128,10 +128,9 @@ class EditWeekiForm(forms.ModelForm):
   favorite = forms.BooleanField(
       widget=FavoriteStarWidget(attrs={'class': 'favorite-star-input'}),
       required=False)
-  topic = forms.ModelChoiceField(
-      queryset=Topic.objects.filter(active=True).order_by('ordering'),
-      widget=forms.HiddenInput(),
-      required=True)
+  topic = forms.ModelChoiceField(queryset=Topic.objects.filter(active=True),
+                                 widget=forms.HiddenInput(),
+                                 required=True)
 
   class Meta:
     model = Weeki
@@ -178,12 +177,9 @@ class ProfileFormLater(forms.ModelForm):
   class Meta:
     model = Profile
     fields = [
-        'bio',
         'email',
         'date_of_birth',
-        'final_age',
         # 'sorting_descending',
-        'language',
         # 'reminder_day',
         # 'reminder_hour',
         # 'mailing',
@@ -194,12 +190,10 @@ class ProfileFormLater(forms.ModelForm):
             'type': 'date',
             'class': 'form-control'
         }),
-        'final_age':
-        forms.Select(attrs={'class': 'form-select'}),
+        # 'final_age':
+        # forms.Select(attrs={'class': 'form-select'}),
         # 'sorting_descending':
         # forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        'language':
-        forms.Select(attrs={'class': 'form-select'}),
         # 'reminder_day':
         # forms.Select(attrs={'class': 'form-select'}),
         # 'reminder_hour':
@@ -210,8 +204,6 @@ class ProfileFormLater(forms.ModelForm):
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self.fields['language'].queryset = Language.objects.all()
-  
 
   def clean(self):
     cleaned_data = super().clean()
