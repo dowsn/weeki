@@ -37,6 +37,24 @@
         .success {
             color: green;
         }
+        .disconnected {
+            color: orange;
+        }
+        .button-group {
+            width: 80%;
+            margin: 10px auto;
+            display: flex;
+            justify-content: flex-end;
+        }
+        #disconnect-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        #reconnect-btn {
+            background-color: #4CAF50;
+            color: white;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -46,11 +64,17 @@
         <input type="text" id="message-input" placeholder="Type your message...">
         <button onclick="sendMessage()">Send</button>
     </div>
+    <div class="button-group">
+        <button id="disconnect-btn" onclick="disconnectChat()">Disconnect</button>
+        <button id="reconnect-btn" onclick="reconnectChat()">Reconnect</button>
+    </div>
 
     <script>
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message-input');
         const statusDiv = document.getElementById('status');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const reconnectBtn = document.getElementById('reconnect-btn');
         let currentResponse = '';
         let userId = {{userId}};
         let chat_session_id = "{{chat_session_id}}";
@@ -58,7 +82,7 @@
         const host = window.location.hostname;
         const port = window.location.port;
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        
+
         // Log connection details for debugging
         console.log('Attempting to connect to WebSocket:');
         console.log(`Host: ${host}`);
@@ -67,51 +91,79 @@
 
         console.log('chat_session_id', chat_session_id)
         console.log('userId', userId);
-        // Create WebSocket connection
+
+        // WebSocket URL
         const wsUrl = `${wsProtocol}//${host}:${port}/ws/api/chat/${userId}/${chat_session_id}`;
         console.log(`WebSocket URL: ${wsUrl}`);
-        const ws = new WebSocket(wsUrl);
-        
-        ws.onopen = function() {
-            console.log('WebSocket Connected');
-            statusDiv.innerHTML = '<span class="success">WebSocket Status: Connected</span>';
-            appendMessage('System', 'Connected to chat');
-        };
-        
-        ws.onmessage = function(event) {
-            console.log('Message received:', event.data);
-            try {
-                const data = JSON.parse(event.data);
-                if (data.token) {
-                    currentResponse += data.token;
-                    updateLastMessage('Assistant', currentResponse);
-                } else if (data.error) {
-                    appendMessage('Error', data.error);
+
+        // Create WebSocket connection
+        let ws;
+
+        function initWebSocket() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                console.log('WebSocket Connected');
+                statusDiv.innerHTML = '<span class="success">WebSocket Status: Connected</span>';
+                appendMessage('System', 'Connected to chat');
+                disconnectBtn.style.display = 'block';
+                reconnectBtn.style.display = 'none';
+                messageInput.disabled = false;
+            };
+
+            ws.onmessage = function(event) {
+                console.log('Message received:', event.data);
+                try {
+                    const data = JSON.parse(event.data);
+
+
+                    if (data.type === 'message_history') {
+                        // Clear existing messages
+                        chatBox.innerHTML = '';
+                        // Add each message from history
+                        data.messages.forEach(msg => {
+                            const sender = msg.role === 'user' ? 'You' : 'Assistant';
+                            appendMessage(sender, msg.content);
+                        });
+                    }
+
+                    if (data.text) {
+                        currentResponse += data.text;
+                        updateLastMessage('Assistant', currentResponse);
+                    } else if (data.error) {
+                        appendMessage('Error', data.error);
+                    }
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                    appendMessage('Error', 'Failed to parse message');
                 }
-            } catch (e) {
-                console.error('Error parsing message:', e);
-                appendMessage('Error', 'Failed to parse message');
-            }
-        };
-        
-        ws.onclose = function(event) {
-            console.log('WebSocket Disconnected:', event.code, event.reason);
-            statusDiv.innerHTML = '<span class="error">WebSocket Status: Disconnected</span>';
-            appendMessage('System', `Disconnected from chat (Code: ${event.code})`);
-        };
-        
-        ws.onerror = function(error) {
-            console.error('WebSocket Error:', error);
-            statusDiv.innerHTML = '<span class="error">WebSocket Status: Error occurred</span>';
-            appendMessage('Error', 'WebSocket error occurred');
-        };
-        
+            };
+
+            ws.onclose = function(event) {
+                console.log('WebSocket Disconnected:', event.code, event.reason);
+                statusDiv.innerHTML = '<span class="disconnected">WebSocket Status: Disconnected</span>';
+                appendMessage('System', `Disconnected from chat (Code: ${event.code})`);
+                disconnectBtn.style.display = 'none';
+                reconnectBtn.style.display = 'block';
+                messageInput.disabled = true;
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket Error:', error);
+                statusDiv.innerHTML = '<span class="error">WebSocket Status: Error occurred</span>';
+                appendMessage('Error', 'WebSocket error occurred');
+                disconnectBtn.style.display = 'none';
+                reconnectBtn.style.display = 'block';
+                messageInput.disabled = true;
+            };
+        }
+
         function sendMessage() {
-            if (ws.readyState !== WebSocket.OPEN) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
                 appendMessage('Error', 'WebSocket is not connected');
                 return;
             }
-            
+
             const message = messageInput.value.trim();
             if (message) {
                 console.log('Sending message:', message);
@@ -123,14 +175,14 @@
                 currentResponse = '';
             }
         }
-        
+
         function appendMessage(sender, message) {
             const msgDiv = document.createElement('div');
             msgDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
-        
+
         function updateLastMessage(sender, message) {
             const lastMsg = chatBox.lastElementChild;
             if (lastMsg && lastMsg.querySelector('strong').textContent === sender + ':') {
@@ -140,12 +192,34 @@
             }
             chatBox.scrollTop = chatBox.scrollHeight;
         }
-        
+
+        function disconnectChat() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send a close message to notify the server
+                ws.send(JSON.stringify({
+                    type: 'close'
+                }));
+
+                // Close the WebSocket connection
+                ws.close(1000, "User disconnected");
+
+                appendMessage('System', 'Disconnecting by user request...');
+            }
+        }
+
+        function reconnectChat() {
+            initWebSocket();
+            appendMessage('System', 'Attempting to reconnect...');
+        }
+
         messageInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
+
+        // Initialize WebSocket on page load
+        initWebSocket();
     </script>
 </body>
 </html>

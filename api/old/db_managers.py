@@ -55,7 +55,7 @@ class StateManager:
             name=topic.name,
             description=topic.description,
             active=topic.active,
-            last_updated=topic.date_updated
+            date_updated=topic.date_updated
         )
 
     @staticmethod

@@ -71,6 +71,7 @@ class Profile(models.Model):
   character = EncryptedTextField(blank=True, null=True, max_length=2000)
   activated = models.BooleanField(default=False)
   welcome_mail_sent = models.BooleanField(default=False)
+  last_login = models.DateTimeField(auto_now=True)
 
   def __str__(self):
     return str(self.user)
@@ -85,52 +86,9 @@ class Profile(models.Model):
       return None
 
 
-class Chat_Session(models.Model):
-  id = models.AutoField(primary_key=True)
-  user = models.ForeignKey(User, on_delete=models.CASCADE)
-  time_left = models.IntegerField(default=60)
-  date = models.DateField(default=date.today)
-  reminder_sent= models.BooleanField(default=False)
-  first = models.BooleanField(default=False)
-  title = EncryptedCharField(max_length=100, blank=True, null=True)
-  summary = EncryptedTextField(blank=True, null=True, max_length=500)
-  chars_since_check = models.IntegerField(default=0)
-
-  def __str__(self):
-    if hasattr(self.user, 'username'):
-      return f"{self.date} - {self.user.username}"
-    else:
-      return f"{self.date} - Unknown Username"
-
-
-  
-
-class Message(models.Model):
-  id = models.AutoField(primary_key=True)
-  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
-  content = EncryptedTextField(max_length=500, blank=True)
-  date_created = models.DateTimeField(default=timezone.now)
-  role = models.CharField(max_length=10,
-                          choices=[('user', 'User'),
-                                   ('assistant', 'Assistant')])
-
-  def __str__(self):
-    return f"{self.date_created}"
-
-
 class Topic(models.Model):
-
-  STATUS_CHOICES = [
-    (0, 'No'),
-    (1, 'Cache'),
-    (2, 'Current'),
-  ]
-
-  currrent_session_status = models.IntegerField(default=0, choices=STATUS_CHOICES)
-
   id = models.AutoField(primary_key=True)
   name = EncryptedCharField(max_length=200)
-  confidence = models.FloatField(default=0.0)
   description = EncryptedTextField(max_length=2000, blank=True)
   user = models.ForeignKey(User,
                            null=True,
@@ -147,6 +105,64 @@ class Topic(models.Model):
   class Meta:
     verbose_name_plural = "Topics"
 
+
+class PastCharacters(models.Model):
+  id = models.AutoField(primary_key=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  character = EncryptedTextField(max_length=2000, blank=True)
+  date_created = models.DateField(auto_now_add=True, null=True)
+
+
+class Chat_Session(models.Model):
+  id = models.AutoField(primary_key=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  time_left = models.IntegerField(default=60)
+  date = models.DateField(default=date.today)
+  reminder_sent = models.BooleanField(default=False)
+  first = models.BooleanField(default=False)
+  title = EncryptedCharField(max_length=100, blank=True, null=True)
+  potential_topic = EncryptedTextField(blank=True, null=True, max_length=2000)
+  summary = EncryptedTextField(blank=True, null=True, max_length=500)
+  chars_since_check = models.IntegerField(default=0)
+  saved_query = EncryptedTextField(blank=True, null=True, max_length=2000)
+  topics = models.ManyToManyField(Topic,
+                                  through='SessionTopic',
+                                  related_name='sessions')
+  logs = models.ManyToManyField('Log',
+                                through='SessionLog',
+                                related_name='sessions')
+
+  @property
+  def cached_topics(self):
+    """Get all topics with 'Cache' status for this session"""
+    return Topic.objects.filter(session_topics__session=self,
+                                session_topics__status=1)
+
+  @property
+  def current_topics(self):
+    """Get all topics with 'Current' status for this session"""
+    return Topic.objects.filter(session_topics__session=self,
+                                session_topics__status=2)
+
+  @property
+  def cached_logs(self):
+    """Get all logs with 'Cache' status for this session"""
+    return Log.objects.filter(session_logs__session=self,
+                              session_logs__status=1)
+
+  @property
+  def current_logs(self):
+    """Get all logs with 'Current' status for this session"""
+    return Log.objects.filter(session_logs__session=self,
+                              session_logs__status=2)
+
+  def __str__(self):
+    if hasattr(self.user, 'username'):
+      return f"{self.date} - {self.user.username}"
+    else:
+      return f"{self.date} - Unknown Username"
+
+
 class Log(models.Model):
   id = models.AutoField(primary_key=True)
   user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -156,11 +172,72 @@ class Log(models.Model):
   text = EncryptedTextField(max_length=500, blank=True)
 
 
-class PastCharacters(models.Model):
+class Message(models.Model):
   id = models.AutoField(primary_key=True)
-  user = models.ForeignKey(User, on_delete=models.CASCADE)
-  character = EncryptedTextField(max_length=2000, blank=True)
-  date_created = models.DateField(auto_now_add=True, null=True)
+  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+  content = EncryptedTextField(max_length=500, blank=True)
+  date_created = models.DateTimeField(default=timezone.now)
+  role = models.CharField(max_length=10,
+                          choices=[('user', 'User'),
+                                   ('assistant', 'Assistant')])
+
+  def __str__(self):
+    return f"{self.date_created}"
+
+
+class SessionTopic(models.Model):
+  """Association model between Chat_Session and Topic with status tracking"""
+  STATUS_CHOICES = [
+      (0, 'No'),
+      (1, 'Cache'),
+      (2, 'Current'),
+  ]
+
+  session = models.ForeignKey(Chat_Session,
+                              on_delete=models.CASCADE,
+                              related_name='session_topics')
+  topic = models.ForeignKey(Topic,
+                            on_delete=models.CASCADE,
+                            related_name='session_topics')
+  status = models.IntegerField(default=0, choices=STATUS_CHOICES)
+  confidence = models.FloatField(default=0.0)
+
+  class Meta:
+    unique_together = ['session', 'topic']
+    indexes = [
+        models.Index(fields=['session', 'status']),
+        models.Index(fields=['topic', 'status']),
+    ]
+
+  def __str__(self):
+    return f"{self.session.id} - {self.topic.name} ({self.get_status_display()})"
+
+
+class SessionLog(models.Model):
+  """Association model between Chat_Session and Log with status tracking"""
+  STATUS_CHOICES = [
+      (0, 'No'),
+      (1, 'Cache'),
+      (2, 'Current'),
+  ]
+
+  session = models.ForeignKey(Chat_Session,
+                              on_delete=models.CASCADE,
+                              related_name='session_logs')
+  log = models.ForeignKey(Log,
+                          on_delete=models.CASCADE,
+                          related_name='session_logs')
+  status = models.IntegerField(default=0, choices=STATUS_CHOICES)
+
+  class Meta:
+    unique_together = ['session', 'log']
+    indexes = [
+        models.Index(fields=['session', 'status']),
+        models.Index(fields=['log', 'status']),
+    ]
+
+  def __str__(self):
+    return f"{self.session.id} - Log {self.log.id} ({self.get_status_display()})"
 
 
 class PastTopics(models.Model):

@@ -7,7 +7,7 @@ from functools import partial
 class TimeManager:
 
   def __init__(self, remaining_minutes: int, on_time_update):
-    self.remaining_minutes = remaining_minutes
+    self.remaining_minutes:int = remaining_minutes
     self.on_time_update = on_time_update
     self._monitor_task: Optional[asyncio.Task] = None
 

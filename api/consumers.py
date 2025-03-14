@@ -19,6 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Get user_id from URL params
     self.user_id = self.scope['url_route']['kwargs']['user_id']
     self.chat_session_id = self.scope['url_route']['kwargs']['chat_session']
+    self.agent = None
 
     try:
       self.user = await database_sync_to_async(User.objects.get
@@ -28,22 +29,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
     except (User.DoesNotExist, Chat_Session.DoesNotExist) as e:
       raise ValueError(f"Invalid session: {str(e)}")
 
-    try:
-      self.agent = await ConversationAgent.create(
-          user=self.user, 
-          chat_session=self.chat_session, 
-          ws_consumer=self
-      )
-    except ValueError as e:
-      await self.close(code=4001)
-      return
-
-    # Accept the WebSocket connection
+    # Accept the WebSocket connection before creating agent
     await self.accept()
 
-    # new code
+    # GIVE AWAY
+
+    # Fetch existing messages
+    messages = await database_sync_to_async(lambda: list(
+        Message.objects.filter(chat_session=self.chat_session).order_by(
+            'date_created')))()
+
+    # Convert messages to list of dicts
+    message_data = [{
+        'role': msg.role,
+        'content': msg.content,
+        'timestamp': msg.date_created.isoformat()
+    } for msg in messages]
+
+    # Send message history
+    await self.send(text_data=json.dumps({
+        'type': 'message_history',
+        'messages': message_data
+    }))
+    # GIVE AWAY
+
+    # Create the agent after accepting connection
+    print("Creating agent...")
+
+    self.agent = await ConversationAgent.create(user=self.user,
+                                                chat_session=self.chat_session,
+                                                ws_consumer=self)
+
     async for token in self.agent.start_session():
-      await self.send(text_data=json.dumps({'type': 'token', 'token': token}))
+      if token:  # Only send non-empty tokens
+        await self.send(text_data=json.dumps({
+            'type': 'token',
+            'token': token
+        }))
 
   async def disconnect(self, close_code):
     self.is_monitoring = False
@@ -55,7 +77,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         pass
 
     await self.handle_close()
-    
 
   async def receive(self, text_data):
 
@@ -92,20 +113,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
           'message': 'Processing your message'
       }))
 
-      # Stream the response
+      # Initialize agent_context as an empty dictionary
+      agent_context = {}
+
+      # If the message indicates a topic operation, add that information to the context
+      if message_type == 'topic_operation':
+        agent_context['topic_operation'] = data.get('confirm', 2)
+
+      # Begin streaming the response from the agent
+
       try:
+        assistant_message = ""  # Initialize an empty message to accumulate tokens
 
-        assistant_message = ""
+        # Get the response from the agent
+        response = await self.agent.run_agent(query, agent_context)
 
-        # the MAIN PART
-        # async for token in self.agent.generate_response(query):
-        async for token in self.agent.run_agent(query):
-          if token:
-            assistant_message += token
-            message = {'type': 'token', 'token': token}
-            print(f"Sending token: {token}")
-            await self.send(text_data=json.dumps(message))
-            await asyncio.sleep(0.01)  # Small delay between tokens
+        # Check if response is a ConversationState object
+        if hasattr(response, 'response_type'):
+          if response.response_type == "message":
+            # Handle standard text response - split and stream tokens
+            for token in response.response.split():
+              token_with_space = token + " "
+              assistant_message += token_with_space
+
+              # fix in frontend
+              await self.send(text_data=json.dumps({
+                  'type': response.response_type,
+                  'text': token_with_space
+              }))
+              await asyncio.sleep(0.01)
+          elif response.response_type == "topic":
+            # Handle special response types
+            await self.send(text_data=json.dumps({
+                'type': response.response_type,
+                'text': response.response
+            }))
 
         # Finish streaming and send completion message
         await self.send(text_data=json.dumps({'type': 'stream_complete'}))
@@ -131,18 +173,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
   async def handle_close(self):
     """Handle closing operations including saving remaining time"""
     try:
-        
+      # Only try to save session state if agent exists
+      if hasattr(self, 'agent') and self.agent is not None:
         await self.agent.save_session_state()
 
-        # Only call close() if this was triggered by an explicit close request
-        # rather than a disconnect
-        if not self.close_code:
-            await self.close(code=4000)
+      # Only call close() if this was triggered by an explicit close request
+      # rather than a disconnect
+      if not getattr(self, 'close_code', None):
+        await self.close(code=4000)
 
     except Exception as e:
-        print(f"Close error: {str(e)}")
-        await self.send_error(f"Close operation failed: {str(e)}")
-
+      print(f"Close error: {str(e)}")
+    # Only try to send error if we still have a connection
+    try:
+      await self.send_error(f"Close operation failed: {str(e)}")
+    except Exception:
+      pass  # Connection might already be closed
 
   async def send_error(self, message):
     """Utility method to send error messages"""

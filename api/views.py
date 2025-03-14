@@ -91,25 +91,22 @@ class CronReminder(APIView):
   permission_classes = [AllowAny]
 
   def get(self, request):
-      # Move the database operations inside the method
-      chat_sessions = Chat_Session.objects.filter(
-          date=timezone.now().date() + timedelta(days=1),
-          reminder_sent=False
-      )
+    # Move the database operations inside the method
+    chat_sessions = Chat_Session.objects.filter(date=timezone.now().date() +
+                                                timedelta(days=1),
+                                                reminder_sent=False)
 
-      for chat_session in chat_sessions:
-          profile = Profile.objects.get(user=chat_session.user)
-          email = profile.email
-          EmailService.send_templated_email(
-              subject="Weeki Reminder",
-              context={},
-              template_path="mail/reminder.html",
-              recipient_email=email
-          )
-          chat_session.reminder_sent = True
-          chat_session.save()
+    for chat_session in chat_sessions:
+      profile = Profile.objects.get(user=chat_session.user)
+      email = profile.email
+      EmailService.send_templated_email(subject="Weeki Reminder",
+                                        context={},
+                                        template_path="mail/reminder.html",
+                                        recipient_email=email)
+      chat_session.reminder_sent = True
+      chat_session.save()
 
-      return Response({"status": "success"})
+    return Response({"status": "success"})
 
 
 def chats_view(request):
@@ -123,14 +120,18 @@ def chats_view(request):
   chat_session = Chat_Session.objects.filter(user_id=user_id,
                                              date=today).first()
 
+  first = Topic.objects.filter(user=user).count() == 0
+
   # If not created, create one
   if not chat_session:
-    chat_session = Chat_Session.objects.create(user=user, date=today)
+    print("new")
+    chat_session = Chat_Session.objects.create(user=user,
+                                               date=today,
+                                               first=first)
     message = 'New Chat session created'
   else:
-    message = 'Existing Chat session used'
 
-  print(message)
+    message = 'Existing Chat session used'
 
   # Return the chat_session id and message
   response_data = {'chat_session_id': chat_session.id, 'userId': user_id}
@@ -732,6 +733,7 @@ class ChatSessionView(APIView):
       # Check if this is the first chat session for the user by checking if there are any topics
       topic_count = Topic.objects.filter(user=user).count()
 
+      first_session = False
       if topic_count == 0:
         first_session = True
 
@@ -1208,11 +1210,11 @@ class TopicsView(APIView):
 
       thirteen_months_ago = timezone.now() - timedelta(days=390)
 
-      active_topics = Topic.objects.filter(user=user, )
+      active_topics = Topic.objects.filter(user=user, active=True)
 
-      topics = active_topics.filter(date_updated__gt=three_months_ago, active=True)
-      old_topics = active_topics.filter(date_updated__gt=thirteen_months_ago,
-                                        date_updated__lte=three_months_ago, active=True)
+      topics = active_topics.filter(date_updated__gt=three_months_ago)
+      old_topics = active_topics.filter(date_updated__lt=three_months_ago)
+      
       # Serialize if needed
       topics_data = TopicSerializer(topics, many=True).data
       old_topics_data = TopicSerializer(old_topics, many=True).data
@@ -1283,6 +1285,9 @@ class LoginAPIView(APIView):
               'error': True
           },
                           status=status.HTTP_404_NOT_FOUND)
+
+        profile.last_login = timezone.now().strftime('%Y-%m-%d')
+        profile.save()
 
         serializer = UserSerializer(profile, context={'request': request})
         response_data = serializer.data

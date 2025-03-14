@@ -2,8 +2,8 @@
 from typing import AsyncGenerator
 from datetime import datetime
 from langchain_xai import ChatXAI
-from api.agents.models.conversation_models import ConversationState
-from app.models import Chat_Session, Message, Profile
+from api.agents.models.conversation_models import ConversationState, TopicState
+from app.models import Chat_Session, Message, Profile, Topic
 from channels.db import database_sync_to_async
 from api.agents.graph.graph_conversation import ConversationGraphManager
 from api.agents.handlers.time_manager import TimeManager
@@ -12,11 +12,13 @@ from api.agents.handlers.log_manager import LogManager
 from api.agents.handlers.session_manager import SessionManager
 from django.contrib.auth.models import User
 from api.agents.handlers.pinecone_manager import PineconeManager
+from datetime import timedelta
+from typing import Optional
 
 
 class MomentManager:
 
-  def __init__(self, user: User, chat_session: Chat_Session, ai_model: ChatXAI,
+  def __init__(self, user, chat_session: Chat_Session, ai_model: ChatXAI,
                on_ending_soon, on_session_end):
     self.user = user
     self.chat_session = chat_session
@@ -27,26 +29,25 @@ class MomentManager:
     self.on_ending_soon = on_ending_soon
     self.on_session_end = on_session_end
 
-    self.pinecone_manager = PineconeManager()
+    self.pinecone_manager = PineconeManager(user_id=self.user.id)
     self.topic_manager = TopicManager(self.pinecone_manager)
     self.log_manager = LogManager(self.pinecone_manager)
 
     self.state = self._initialize_state()
     self.time_manager = TimeManager(self.remaining_minutes,
                                     self._on_time_update)
-    self.session_manager = SessionManager(getattr(self.chat_session, 'first'),
-                                          ai_model)
+    self.session_manager = SessionManager(self.chat_session,
+                                          self.pinecone_manager, ai_model)
+
     self.graph = self._setup_graph()
 
   def _initialize_state(self) -> ConversationState:
-    messages_str = self._format_message_history()
 
     return ConversationState(
         # fix
-        user_id=self.user.id,
-        username=self.user.username,
-        conversation_context=messages_str,
-    )
+        user_id=int(self.user.id),
+        username=str(self.user.username),
+        conversation_context='')
 
   def get_current_state(self) -> ConversationState:
     return self.state
@@ -56,90 +57,83 @@ class MomentManager:
                                     topic_manager=self.topic_manager,
                                     log_manager=self.log_manager).graph
 
-    async def get_one_topic(self, topic: Topic, get_embedding: Bool = True) -> TopicState:
-      """Convert Topic model to TopicState"""
-      if topic is None:
-          return None
+  async def load_topics_and_logs(self):
+    """
+    Load all types of topics from database into state using the new
+    association models for better data organization and retrieval
+    """
+    # Load active topics list for new sessions
+    if len(self.messages) == 0:
 
-      if get_embedding:
-          embedding = await self.pinecone_manager.get_embedding(topic.name)
-      else:
-          embedding=None
-      
+      @database_sync_to_async
+      def get_active_topics():
+        return list(
+            Topic.objects.filter(user=self.user,
+                                 date_updated__gte=datetime.now() -
+                                 timedelta(days=90),
+                                 active=True).values_list('name', flat=True))
 
-      return TopicState(
-          name=topic.name,
-          description=topic.description,
-          confidence=topic.confidence,
-          embedding=embedding,
-          date_updated=topic.date_updated
-      )
+      topics_list = await get_active_topics()
+      self.state.active_topics = ", ".join(topics_list)
 
-    async def load_topics(self):
-      """Load all types of topics from database into state"""
+    # Load cached topics (status=1) using topic manager
+    self.state.cached_topics = await self.topic_manager.get_session_topics(
+        session_id=self.chat_session.id,
+        status=1  # Cache status
+    )
 
-      # Load cached topics
-      cached_topics = await database_sync_to_async(
-          lambda: list(Topic.objects.filter(
-              user=self.user,
-              currrent_session_status=1
-          ))
-      )()
+    # Load current topics (status=2) using topic manager
+    self.state.current_topics = await self.topic_manager.get_session_topics(
+        session_id=self.chat_session.id,
+        status=2  # Current status
+    )
 
-      self.state.cached_topics = []
-      for topic in cached_topics:
-          topic_state = await self.get_one_topic(topic)
-          if topic_state:
-              self.state.cached_topics.append(topic_state)
+    # Load logs using log manager
+    self.state.cached_logs = await self.log_manager.get_session_logs(
+        session_id=self.chat_session.id,
+        status=1  # Cache status
+    )
 
-      # Load current topics
-      current_topics = await database_sync_to_async(
-          lambda: list(Topic.objects.filter(
-              user=self.user,
-              currrent_session_status=2
-          ))
-      )()
+    self.state.current_logs = await self.log_manager.get_session_logs(
+        session_id=self.chat_session.id,
+        status=2  # Cache status
+    )
 
-      self.state.current_topics = []
-      for topic in current_topics:
-          topic_state = await self.get_one_topic(topic)
-          if topic_state:
-              self.state.current_topics.append(topic_state)
+    # Load potential topic from session
+    self.state.potential_topic = self.chat_session.potential_topic
 
-      # Load potential topic (inactive)
-      potential_topic = await database_sync_to_async(
-          lambda: Topic.objects.filter(
-              user=self.user,
-              active=False
-          ).first()
-      )()
-
-      self.state.potential_topic = await self.get_one_topic(potential_topic, get_one_topic=False)
-
-      # Load chars since check
-      self.state.chars_since_check = self.chat_session.chars_since_check
+    # Load chars since check
+    self.state.chars_since_check = self.chat_session.chars_since_check
 
   def _format_message_history(self) -> str:
 
     last_role = None
     formatted = ""
     for msg in self.messages:
-      role = 'Human' if msg['role'] == 'user' else 'Assistant'
+      role = 'Human' if msg.role == 'user' else 'Assistant'
       if last_role == role:
-        formatted += f"{msg['content']}\n"
+        formatted += f"{msg.content}\n"
       else:
-        formatted += f"{role}: {msg['content']}\n"
+        formatted += f"{role}: {msg.content}\n"
       last_role = role
     return formatted
 
   async def load_messages(self):
-    self.messages = await database_sync_to_async(
-        Message.objects.filter(
-            chat_session=self.chat_session).order_by('date_created'))()
+
+    def get_messages():
+      return list(
+          Message.objects.filter(
+              chat_session=self.chat_session).order_by('date_created'))
+
+    self.messages = await database_sync_to_async(get_messages)()
     self.state.conversation_context = self._format_message_history()
 
   async def load_character(self):
-    profile = database_sync_to_async(Profile.objects.get(user=self.user))
+
+    def get_profile():
+      return Profile.objects.filter(user=self.user).first()
+
+    profile = await database_sync_to_async(get_profile)()
 
     # fix
     self.state.character = profile.character
@@ -157,27 +151,92 @@ class MomentManager:
       if self.on_session_end:
         await self.on_session_end(message)
 
-  async def run_agent(self, query: str) -> str:
+  async def run_agent(self, query: str, agent_context: dict) -> ConversationState:
+    print(f"Original query: {query}")
+
+    self.state.add_context(agent_context)
     self.state.add_message(query)
-    # Run through process_message node and update internal state
-    result = await self.graph.arun(self.state, "start")
-    self.state = result  # Ensure state is updated with graph changes
-    return result.get_response()
+
+    # Add logging before graph invocation
+    print(
+        f"State before graph invoke: prompt_query = {self.state.prompt_query}")
+    print(
+        f"State before graph invoke: potential_topic = {self.state.potential_topic}"
+    )
+
+    # Run through the graph and get the updated state
+    result = await self.graph.ainvoke(self.state)
+    print(f"Graph execution completed, result type: {type(result)}")
+
+    # Ensure we have a proper ConversationState object
+    if isinstance(result, dict):
+      print("Converting dict result to ConversationState")
+      try:
+        
+        result = ConversationState(**dict(result))
+      except Exception as e:
+        print(f"Error converting result to ConversationState: {str(e)}")
+        # If conversion fails, just use the dict directly
+        pass
+
+    # Update our state with the result
+    self.state = result
+
+    # Update the chat session with current state values
+    await self._update_chat_session_state()
+
+    if isinstance(self.state, ConversationState):
+        return self.state
+    else:
+        raise TypeError("Unexpected state type. Expected 'ConversationState'.")
+
+  async def _update_chat_session_state(self):
+    """Update the chat session with current state values"""
+    updates = {
+        'potential_topic': getattr(self.state, 'potential_topic', ""),
+        'chars_since_check': getattr(self.state, 'chars_since_check', 0)
+    }
+
+    @database_sync_to_async
+    def update_session():
+      for field, value in updates.items():
+        setattr(self.chat_session, field, value)
+      self.chat_session.save(update_fields=list(updates.keys()))
+
+    await update_session()
+
 
 # initialize state and first message
+
+  async def load_previous_session(self):
+
+    last_chat_session = await database_sync_to_async(
+        lambda: Chat_Session.objects.filter(user=self.user, time_left=0
+                                            ).order_by('-id').first())()
+
+    if last_chat_session:
+      self.state.previous_summary = last_chat_session.summary
 
   async def start_session(self):
     await self.time_manager.start_monitoring()
     await self.load_messages()
     await self.load_character()
-    await self.load_topics()
+    await self.load_topics_and_logs()
+    await self.load_previous_session()
 
-    return await self.session_manager.handle_start()
+    if not self.messages:
+      self.session_manager.update_state(self.state)
+      return await self.session_manager.handle_start()
+    return ""
 
-  def get_remaining_time(self) -> int:
-    return self.time_manager.get_remaining_time()
+  async def get_remaining_time(self) -> int:
+    remaining_time = await self.time_manager.get_remaining_time()
+    return int(remaining_time)
 
   async def end_session(self):
     self.time_manager.stop_monitoring()
-    await self.graph.arun(self.state, "handle_end")
+    # Update session manager with final state
+    self.session_manager.update_state(self.state)
+    self.state.prepare_prompt_end()
+    await self.session_manager.handle_state_end()
     return await self.session_manager.handle_end()

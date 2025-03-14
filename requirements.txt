@@ -25,3 +25,4 @@ deepgram
 stripe
 jinja2
 Pillow
+nltk==3.9.1

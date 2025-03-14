@@ -363,5 +363,4 @@ class ConversationAgent:
                                      chat_session_id=self.chat_session_id)
 
     # Update topics in Pinecone
-    await self.pinecone.upsert_topics(topics=self.state.topic_pool,
-                                      user_id=self.user_id)
+    await self.pinecone.upsert_topics(topics=self.state.topic_pool)
