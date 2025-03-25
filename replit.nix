@@ -1,5 +1,6 @@
 { pkgs }: {
   deps = [
+    pkgs.lsof
     pkgs.rustc
     pkgs.libiconv
     pkgs.cargo

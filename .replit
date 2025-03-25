@@ -1,7 +1,8 @@
 entrypoint = "manage.py"
 modules = ["python-3.10:v18-20230807-322e88b", "postgresql-16"]
 hidden = [".pythonlibs"]
-run = "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application"
+run = "python manage.py runserver 0.0.0.0:3000"
+
 [nix]
 channel = "stable-23_11"
 [deployment]
@@ -11,16 +12,16 @@ run = [
   "watchfiles --reload-signal SIGHUP 'python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
 ]
 
-# run = "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application"
-
-
 
 deploymentTarget = "cloudrun"
-
 
 [[ports]]
 localPort = 3000
 externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
 [env]
 PYTHON_PACKAGES = ".pythonlibs"
 [packager]
