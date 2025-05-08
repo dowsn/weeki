@@ -26,23 +26,7 @@ from app import views as app_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # need to change based on authentication
-    # if request.user.is_authenticated else
-    path("", views.index, name="home"),
-    path("home", views.index2, name="home_2"),
-    path("about", views.about, name="about"),
-    path('rec', views.rec, name='rec'),
-    # path("create", views.article_list)
-    path("blog/", include('blog.urls')),
-    path('feedback/', views.feedback_view, name='feedback'),
-    path('accounts/', include('accounts.urls')),
-    path('on/', include('app.urls')),
     path('api/', include('api.urls')),
-    path('payments/', include('payments.urls')),
-
-    # is this a common practice?
-
-    # path("courses", include.urls)
 ]
 
 urlpatterns += staticfiles_urlpatterns()

@@ -313,5 +313,6 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'info@weeki.ai')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY', '')
 PINECONE_INDEX_NAME = os.environ.get('PINECONE_INDEX_NAME', '')
 PINECONE_ENVIRONMENT = os.environ.get('PINECONE_ENVIRONMENT', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 SHOW_ADMIN_DATA = True

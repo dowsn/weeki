@@ -1,11 +1,11 @@
 from api.agents.models.conversation_models import ConversationState, TopicState
 from typing import List
-from app.models import SessionTopic
+from app.models import Conversation_Session, SessionTopic, Topic
 from channels.db import database_sync_to_async
+from llama_index.core import Settings
 
 import numpy as np
 from api.agents.handlers.pinecone_manager import PineconeManager
-from app.models import Topic
 
 
 class TopicManager:
@@ -14,26 +14,74 @@ class TopicManager:
     self.similarity_threshold = 0.7
     self.confidence_threshold = 0.5
     self.pinecone_manager = pinecone_manager
+    self.embedding_model = Settings.embed_model
+
+  async def store_topic(self, topic: TopicState, state: ConversationState) -> TopicState:
+    @database_sync_to_async
+    def create_topic_in_db():
+        topic_in_db = Topic.objects.create(
+            name=topic.topic_name,
+            description=topic.text,
+            user_id=state.user_id
+        )
+
+        SessionTopic.objects.create(
+            session_id=state.chat_session.id,
+            topic_id=topic_in_db.pk,  # Note: use topic_in_db.pk here
+            status=1,
+            confidence=0.85
+        )
+
+        return topic_in_db
+
+    topic_in_db = await create_topic_in_db()
+
+    new_topic_state = TopicState(
+        topic_id=topic_in_db.pk,
+        topic_name=topic_in_db.name,
+        text=topic.text,
+        confidence=0.85,
+        embedding=None
+    )
+
+    # Use pinecone_manager to create and store the embedding
+    embedding = await self.pinecone_manager.upsert_topic(new_topic_state)
+    new_topic_state.embedding = embedding
+
+    return new_topic_state
 
   # where is this called
   async def check_topics(self, state: ConversationState) -> ConversationState:
+    state.current_topics = []
     matched_topics = []
-    # Check cached topics
-    if state.embedding is not None:
-      matched_topics = self._compare_cached_topics(state.cached_topics,
-                                                   state.embedding)
-    # Query Pinecone if needed
-    if len(matched_topics) == 0 and state.embedding:
-      new_topics = await self.pinecone_manager.retrieve_topics(
-          embedding=state.embedding)
-      state.cached_topics.extend(new_topics)
-      matched_topics = new_topics
 
-    print(f"Matched topics: {[t.topic_name for t in matched_topics]}")
+    if len(matched_topics) == 0 and state.embedding:
+        new_topics = await self.pinecone_manager.retrieve_topics(
+            embedding=state.embedding)
+        matched_topics = new_topics
+
+        @database_sync_to_async
+        def process_topics():
+            for topic in new_topics:
+                try:
+                    existing_topic = SessionTopic.objects.get(
+                        session_id=state.session_id,
+                        topic_id=topic.topic_id
+                    )
+                except SessionTopic.DoesNotExist:
+                    SessionTopic.objects.create(
+                        session_id=state.session_id,
+                        topic_id=topic.topic_id,
+                        status=1,
+                        confidence=topic.confidence
+                    )
+
+        await process_topics()
+
     state.current_topics = matched_topics
 
     if len(matched_topics) == 0:
-      state = await self.create_new_topic(state)
+        state = await self.create_new_topic(state)
 
     state.embedding = None
     return state
@@ -43,23 +91,6 @@ class TopicManager:
     state.potential_topic = "NA"
     return state
 
-  def _compare_cached_topics(
-      self, cached_topics: List[TopicState],
-      context_embedding: List[float]) -> List[TopicState]:
-    matched = []
-    for topic in cached_topics:
-      if topic.embedding is not None:
-        similarity = self._cosine_similarity(context_embedding,
-                                             topic.embedding)
-        if similarity > self.similarity_threshold:
-          topic.confidence = (topic.confidence * 0.7) + (similarity * 0.3)
-          matched.append(topic)
-        else:
-          topic.confidence *= 0.9  # Decay confidence
-    return matched
-
-  def _cosine_similarity(self, v1: List[float], v2: List[float]) -> float:
-    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
   async def get_session_topics(self,
                                session_id: int,

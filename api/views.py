@@ -2,6 +2,7 @@ import anthropic
 from django.http import JsonResponse
 from app.models import Chat_Session, Weeki, Week, Profile, Topic, User, Year, Summary, Message, PasswordResetToken, ProfileActivationToken
 from smtplib import SMTPException
+import time
 
 from django.utils import timezone
 from api.utilities.regex import clean_content
@@ -98,9 +99,10 @@ class CronReminder(APIView):
 
     for chat_session in chat_sessions:
       profile = Profile.objects.get(user=chat_session.user)
+      username = profile.user.username
       email = profile.email
       EmailService.send_templated_email(subject="Weeki Reminder",
-                                        context={},
+                                        context={'username': username},
                                         template_path="mail/reminder.html",
                                         recipient_email=email)
       chat_session.reminder_sent = True
@@ -158,7 +160,7 @@ class DeleteUser(APIView):
   authentication_classes = [JWTAuthentication]
 
   def post(self, request):
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
     password = request.data.get('password')
 
     if not all([user_id, password]):
@@ -461,7 +463,7 @@ class UpdateProfile(APIView):
   permission_classes = [IsAuthenticated]
 
   def post(self, request):
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
 
     username = request.data.get('username')
     password = request.data.get('password')
@@ -469,9 +471,9 @@ class UpdateProfile(APIView):
     reminder = request.data.get('reminder')
 
     # Get current user and profile
-    user = get_object_or_404(User, id=user_id)
+    user = request.user
     try:
-      profile = Profile.objects.get(user=user)
+      profile = request.profile
     except Profile.DoesNotExist:
       return Response({
           'message': 'Profile not found',
@@ -648,9 +650,7 @@ class ChatSessionView(APIView):
 
       chat_session.delete()
 
-      user = chat_session.user
-
-      profile = Profile.objects.get(user=user)
+      profile = request.profile
 
       profile.tokens = profile.tokens + 1
 
@@ -676,7 +676,7 @@ class ChatSessionView(APIView):
 
   def post(self, request):
     """Create a new chat session"""
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
 
     try:
       date_input = request.data.get('date')
@@ -721,9 +721,9 @@ class ChatSessionView(APIView):
                       status=status.HTTP_400_BAD_REQUEST)
 
     try:
-      user = get_object_or_404(User, id=user_id)
+      user = request.user
 
-      profile = Profile.objects.get(user=user)
+      profile = request.profile
       if profile.tokens <= 0:
         return Response({'message': 'Insufficient tokens', 'error': True})
       else:
@@ -760,45 +760,49 @@ class ChatSessionView(APIView):
 
   def put(self, request):
     """Update an existing chat session with a new date"""
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
     chat_session_id = request.data.get('chatSessionId')
 
     # Attempt to parse the date; if an error occurs, use today's date as default
 
     try:
       date_input = request.data.get('date')
-      if date_input is not None:
-        try:
-          date = datetime.strptime(date_input.split('T')[0], '%Y-%m-%d').date()
-
-          if date < timezone.now().date():
-            return Response(
-                {
-                    'message': 'Date must be in the future',
-                    'error': True
-                },
-                status=status.HTTP_400_BAD_REQUEST)
-        except ValueError as e:
-          logging.error(f"API Error: Invalid date input - {str(e)}")
-          return Response({
-              'message': 'Invalid date format',
-              'error': True
-          },
-                          status=status.HTTP_400_BAD_REQUEST)
+      if isinstance(date_input, str):
+        # Parse the date string
+        date = datetime.strptime(date_input, '%Y-%m-%d').date()
       else:
-        logging.error("API Error: Date input is missing.")
-        return Response({
-            'message': 'Date is required',
-            'error': True
-        },
-                        status=status.HTTP_400_BAD_REQUEST)
-    except (ValueError, TypeError) as e:
+        return Response(
+            {"error": "Date must be a string in YYYY-MM-DD format"},
+            status=400)
+
+      if date < timezone.now().date():
+        return Response(
+            {
+                'message': 'Date must be in the future',
+                'error': True
+            },
+            status=status.HTTP_400_BAD_REQUEST)
+    except ValueError as e:
       logging.error(f"API Error: Invalid date input - {str(e)}")
       return Response({
           'message': 'Invalid date format',
           'error': True
       },
                       status=status.HTTP_400_BAD_REQUEST)
+      # else:
+      #   logging.error("API Error: Date input is missing.")
+      #   return Response({
+      #       'message': 'Date is required',
+      #       'error': True
+      #   },
+      # status=status.HTTP_400_BAD_REQUEST)
+    # except (ValueError, TypeError) as e:
+    #   logging.error(f"API Error: Invalid date input - {str(e)}")
+    #   return Response({
+    #       'message': 'Invalid date format',
+    #       'error': True
+    #   },
+    #                   status=status.HTTP_400_BAD_REQUEST)
 
     if not user_id or not chat_session_id:
       return Response(
@@ -840,14 +844,17 @@ class ChatSessionView(APIView):
     else:
 
       thirteen_months_ago = timezone.now() - timedelta(days=390)
+      thirteen_months_ago_timestamp = time.mktime(
+          thirteen_months_ago.timetuple())
 
       return Chat_Session.objects.filter(
           user=user, time_left=0,
-          date__gte=thirteen_months_ago).order_by('-date')
+          date__gte=thirteen_months_ago_timestamp).order_by('-date')
 
   def get_surrounding_chats(self, selected_chat):
     """Get the chat sessions before and after the selected chat"""
     if not selected_chat:
+      
       return None, None
 
     before_chat = Chat_Session.objects.filter(
@@ -862,7 +869,7 @@ class ChatSessionView(APIView):
 
   def get_all_chats(self, request):
     """Get all chats and the selected chat"""
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
     selected_id = request.GET.get('selectedId')
 
     if not user_id:
@@ -899,7 +906,7 @@ class ChatSessionView(APIView):
 
   def get_chat_with_context(self, request):
     """Get a specific chat with its surrounding context"""
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
     selected_id = request.GET.get('selectedId')
 
     if not user_id:
@@ -1000,7 +1007,7 @@ class ChatSessionView(APIView):
           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
   def get(self, request):
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
     """Route to appropriate method based on query parameters"""
     context = request.GET.get('context', 'false').lower() == 'true'
     getMessage = request.GET.get('getMessage', 'false').lower() == 'true'
@@ -1020,7 +1027,7 @@ class DashboardView(APIView):
   def get(self, request):
 
     # security??
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
 
     if not user_id:
       return Response({
@@ -1029,11 +1036,11 @@ class DashboardView(APIView):
       },
                       status=status.HTTP_400_BAD_REQUEST)
 
-    user = User.objects.get(id=user_id)
+    user = request.user
 
     if user:
 
-      profile = Profile.objects.get(user=user)
+      profile = request.profile
 
       subscription_day = profile.subscription_date.day if profile.subscription_date and profile.subscription_date > timezone.now(
       ).date() else None
@@ -1086,7 +1093,7 @@ class TopicsView(APIView):
   def get(self, request):
 
     # security??
-    user_id = request.token_data['user_id']
+    user_id = request.user_id
 
     if not user_id:
       return Response({
@@ -1095,7 +1102,7 @@ class TopicsView(APIView):
       },
                       status=status.HTTP_400_BAD_REQUEST)
 
-    user = User.objects.get(id=user_id)
+    user = request.user
 
     if user:
 
@@ -1107,12 +1114,12 @@ class TopicsView(APIView):
 
       topics = active_topics.filter(date_updated__gt=three_months_ago)
       old_topics = active_topics.filter(date_updated__lt=three_months_ago)
-      
+
       # Serialize if needed
       topics_data = TopicSerializer(topics, many=True).data
       old_topics_data = TopicSerializer(old_topics, many=True).data
 
-      profile = Profile.objects.get(user=user)
+      profile = request.profile
 
       data = {
           'topics': topics_data,
@@ -1184,6 +1191,9 @@ class LoginAPIView(APIView):
 
         serializer = UserSerializer(profile, context={'request': request})
         response_data = serializer.data
+
+        print("here")
+        print(tokens)
 
         response_data['tokens'] = tokens
 

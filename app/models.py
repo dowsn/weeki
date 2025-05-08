@@ -123,7 +123,6 @@ class Chat_Session(models.Model):
   title = EncryptedCharField(max_length=100, blank=True, null=True)
   potential_topic = EncryptedTextField(blank=True, null=True, max_length=2000)
   summary = EncryptedTextField(blank=True, null=True, max_length=500)
-  chars_since_check = models.IntegerField(default=0)
   saved_query = EncryptedTextField(blank=True, null=True, max_length=2000)
   topics = models.ManyToManyField(Topic,
                                   through='SessionTopic',

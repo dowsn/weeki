@@ -6,13 +6,24 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from langchain_pinecone import PineconeEmbeddings
-from django.conf import settings
 from api.agents.models.conversation_models import ConversationState
 from api.agents.models.conversation_models import TopicState, LogState
 import re
 import string
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
+from app.models import Topic, Log
+
+# LlamaIndex imports
+from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core.schema import Document, NodeWithScore, TextNode
+from llama_index.vector_stores.pinecone import PineconeVectorStore
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.core.retrievers import BaseRetriever
+from llama_index.core import Settings
+# Create a VectorStoreQuery object
+from llama_index.core.vector_stores.types import VectorStoreQuery
+from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
 
 logger = logging.getLogger(__name__)
 
@@ -23,20 +34,37 @@ class PineconeManager:
     self._validate_settings()
     self.user_id = user_id
 
-    self.embedding = PineconeEmbeddings(model="multilingual-e5-large",
-                                        api_key=settings.PINECONE_API_KEY)
+    self.embedding_model = OpenAIEmbedding(model="text-embedding-3-small",
+                                           api_key=settings.OPENAI_API_KEY)
+    Settings.embed_model = self.embedding_model
 
-    # Initialize stores with separate namespaces
-    self.topic_store = Pinecone.from_existing_index(
-        embedding=self.embedding,
+    # Initialize Pinecone vector stores with separate namespaces
+    self.topic_store = PineconeVectorStore(
         index_name=settings.PINECONE_INDEX_NAME,
-        namespace="topics")
+        environment=settings.PINECONE_ENVIRONMENT,
+        namespace="topics",
+        api_key=settings.PINECONE_API_KEY)
 
-    self.log_store = Pinecone.from_existing_index(
-        embedding=self.embedding,
+    self.log_store = PineconeVectorStore(
         index_name=settings.PINECONE_INDEX_NAME,
-        namespace="logs")
+        environment=settings.PINECONE_ENVIRONMENT,
+        namespace="logs",
+        api_key=settings.PINECONE_API_KEY)
 
+    # Create indexes
+    self.topic_storage_context = StorageContext.from_defaults(
+        vector_store=self.topic_store)
+    self.log_storage_context = StorageContext.from_defaults(
+        vector_store=self.log_store)
+
+    self.topic_index = VectorStoreIndex.from_vector_store(
+        vector_store=self.topic_store,
+        storage_context=self.topic_storage_context)
+
+    self.log_index = VectorStoreIndex.from_vector_store(
+        vector_store=self.log_store, storage_context=self.log_storage_context)
+
+    # Create executor for async operations
     self.executor = ThreadPoolExecutor(max_workers=3)
 
   def _validate_settings(self):
@@ -44,6 +72,11 @@ class PineconeManager:
     missing = [key for key in required if not hasattr(settings, key)]
     if missing:
       raise ValueError(f"Missing required settings: {', '.join(missing)}")
+
+  async def get_text_embedding(self, text: str) -> List[float]:
+    """Get embedding for text using the configured embedding model"""
+    return await asyncio.get_event_loop().run_in_executor(
+        self.executor, lambda: self.embedding_model.get_text_embedding(text))
 
   def calculate_time_decay(self, date_updated: datetime) -> float:
     """Calculate decay factor based on time elapsed"""
@@ -62,141 +95,137 @@ class PineconeManager:
     # Weight: 70% similarity, 30% time freshness
     return (0.7 * base_score) + (0.3 * time_decay)
 
-  async def retrieve_logs(self,
-                          embedding: List[float],
-                          min_score: float = 0.5,
-                          top_k: int = 5) -> List[LogState]:
+  class TimeDecayRetriever(BaseRetriever):
+    """Custom retriever that applies time-decay to relevance scores"""
 
-    try:
-      now = datetime.now()
-      three_months_ago = now - timedelta(days=90)
+    def __init__(self, vector_store, user_id, calculate_time_decay_fn,
+                 adjust_score_fn, parent_manager):
+      self.vector_store = vector_store
+      self.user_id = user_id
+      self.embedding_model = Settings.embed_model
+      self.calculate_time_decay = calculate_time_decay_fn
+      self.adjust_score = adjust_score_fn
+      self.parent_manager = parent_manager
 
-      index = self.log_store._index
+    def _retrieve(self,
+                  query_embedding,
+                  min_score=0.5,
+                  top_k=5,
+                  time_filter=True):
+      # Import the necessary classes
 
-      # Query with metadata filters
-      results = await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: index.query(vector=embedding,
-                              filter={
-                                  "user_id": self.user_id,
-                                  "date": {
-                                      "$gt": three_months_ago.isoformat(),
-                                      "$lt": now.isoformat()
-                                  }
-                              },
-                              top_k=top_k,
-                              namespace="logs"))
+      # Build filters
+      filter_list = [
+          MetadataFilter(key="user_id",
+                         operator=FilterOperator.EQ,
+                         value=str(self.user_id))
+      ]
 
-      logs = []
-      for doc, score in results:
+      # Add time filter if requested
+      if time_filter:
+        now = datetime.now()
+        three_months_ago = now - timedelta(days=90)
+
+        # Convert to Unix timestamps (seconds since epoch)
+        now_timestamp = now.timestamp()
+        three_months_ago_timestamp = three_months_ago.timestamp()
+
+        filter_list.append(
+            MetadataFilter(key="date_updated",  # Same field name as in your data
+                           operator=FilterOperator.GTE,
+                           value=three_months_ago_timestamp))
+        filter_list.append(
+            MetadataFilter(key="date_updated",
+                           operator=FilterOperator.LTE,
+                           value=now_timestamp))
+
+      # Create metadata filters
+      filters = MetadataFilters(filters=filter_list)
+
+      # Create query
+      vector_store_query = VectorStoreQuery(query_embedding=query_embedding,
+                                            similarity_top_k=top_k,
+                                            filters=filters)
+
+      # Execute query
+      query_result = self.vector_store.query(vector_store_query)
+
+      # Process results
+      adjusted_results = []
+      for node_with_score in query_result.nodes:
         try:
-          # Safely access metadata
-          if not hasattr(doc, 'metadata'):
-            logger.warning(f"Document missing metadata: {doc}")
-            continue
+          node = node_with_score.node
+          score = node_with_score.score
+          metadata = node.metadata
+          date_str = metadata.get("date")
 
-          metadata = doc.metadata
+          if date_str:
+            date = datetime.fromisoformat(date_str)
+            adjusted_score = self.adjust_score(score, date)
 
-          # Extract required fields with explicit type conversion
-          topic_name = metadata.get('topic_name')
-          if topic_name is None:
-            continue
-
-          try:
-            topic_name = str(topic_name)
-          except (ValueError, TypeError):
-            logger.warning(f"Invalid topic_name format: {topic_name}")
-            continue
-
-          # Extract other required fields
-          topic_name = str(metadata.get('topic_name', ''))
-          topic_id = int(metadata.get('topic_id', 0))
-          text = str(metadata.get('text', ''))
-          date = metadata.get('date')
-
-          if not all([topic_name, text, date]):
-            logger.warning(f"Missing required fields in metadata: {metadata}")
-            continue
-
-          # Parse date
-          try:
-            date = datetime.fromisoformat(date)
-          except (ValueError, TypeError):
-            logger.warning(f"Invalid date format: {date}")
-            continue
-
-          # Calculate score with time decay
-          adjusted_score = self.adjust_score_with_decay(score, date)
-          if adjusted_score < min_score:
-            continue
-
-          # Get embedding from metadata
-          embedding_values = metadata.get('values')
-          if embedding_values is None:
-            logger.warning(f"Missing embedding values for log")
-
-          # Create TopicState
-          log = LogState(topic_id=topic_id,
-                         topic_name=topic_name,
-                         text=text,
-                         date=date)
-          logs.append(log)
-
+            if adjusted_score >= min_score:
+              # Create a new NodeWithScore with adjusted score
+              adjusted_node_with_score = NodeWithScore(node=node,
+                                                       score=adjusted_score)
+              adjusted_results.append(adjusted_node_with_score)
         except Exception as e:
-          logger.warning(f"Error processing log: {str(e)}")
+          logger.warning(f"Error processing result: {str(e)}")
           continue
 
-      return logs
+      return adjusted_results
 
-    except Exception as e:
-      logger.error(f"Error retrieving topics: {str(e)}")
-      return []
+    async def retrieve(self, query, **kwargs):
+      # Get embedding for query
+      if isinstance(query, str):
+        query_embedding = await self.parent_manager.get_text_embedding(query)
+      else:
+        # Assume it's already an embedding
+        query_embedding = query
+
+      min_score = kwargs.get("min_score", 0.5)
+      top_k = kwargs.get("top_k", 5)
+      time_filter = kwargs.get("time_filter", True)
+
+      return self._retrieve(query_embedding=query_embedding,
+                            min_score=min_score,
+                            top_k=top_k,
+                            time_filter=time_filter)
 
   async def retrieve_topics(self,
                             embedding: List[float],
                             min_score: float = 0.5,
                             top_k: int = 5) -> List[TopicState]:
     """
-    Retrieve relevant topics based on embedding similarity and time decay.
+    Retrieve topics similar to the embedding with time-decay applied to scores.
 
     Args:
-    embedding: Vector embedding to compare against
-    user_id: User ID to filter topics
-    min_score: Minimum similarity score threshold
-    top_k: Maximum number of topics to return
+        embedding: Query embedding vector
+        min_score: Minimum similarity score (after decay)
+        top_k: Maximum number of results
 
     Returns:
-    List[TopicState]: List of matching topics
+        List[TopicState]: List of retrieved topics
     """
     try:
-      now = datetime.now()
-      three_months_ago = now - timedelta(days=90)
+      # Create an instance of our custom retriever
+      retriever = self.TimeDecayRetriever(
+          vector_store=self.topic_store,
+          user_id=self.user_id,
+          calculate_time_decay_fn=self.calculate_time_decay,
+          adjust_score_fn=self.adjust_score_with_decay,
+          parent_manager=self)
 
-      index = self.topic_store._index
-
-      # Query with metadata filters
+      # Use executor to run retrieval in a thread
       results = await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: index.query(vector=embedding,
-                              filter={
-                                  "user_id": self.user_id,
-                                  "last_updated": {
-                                      "$gt": three_months_ago.isoformat(),
-                                      "$lt": now.isoformat()
-                                  }
-                              },
-                              top_k=top_k,
-                              namespace="topics"))
+          self.executor, lambda: retriever._retrieve(
+              query_embedding=embedding, min_score=min_score, top_k=top_k))
 
+      # Convert results to TopicState objects
       topics = []
-      for doc, score in results:
+      for node_with_score in results:
         try:
-          # Safely access metadata
-          if not hasattr(doc, 'metadata'):
-            logger.warning(f"Document missing metadata: {doc}")
-            continue
-
-          metadata = doc.metadata
+          node = node_with_score.node
+          metadata = node.metadata
 
           # Extract required fields with explicit type conversion
           topic_id = metadata.get('topic_id')
@@ -205,43 +234,40 @@ class PineconeManager:
 
           try:
             topic_id = int(topic_id)
+            topic = Topic.objects.get(id=topic_id)
           except (ValueError, TypeError):
             logger.warning(f"Invalid topic_id format: {topic_id}")
             continue
 
-          # Extract other required fields
-          topic_name = str(metadata.get('topic_name', ''))
-          text = str(metadata.get('text', ''))
-          date_updated = metadata.get('date_updated')
+          date_updated_str = metadata.get('date_updated')
 
-          if not all([topic_name, text, date_updated]):
-            logger.warning(f"Missing required fields in metadata: {metadata}")
+          if not topic:
+            logger.warning("Missing topic")
             continue
 
           # Parse date
           try:
-            last_updated = datetime.fromisoformat(date_updated)
+            date_updated = datetime.fromisoformat(date_updated_str)
           except (ValueError, TypeError):
-            logger.warning(f"Invalid date format: {date_updated}")
+            logger.warning(f"Invalid date format: {date_updated_str}")
             continue
 
-          # Calculate score with time decay
-          adjusted_score = self.adjust_score_with_decay(score, last_updated)
-          if adjusted_score < min_score:
-            continue
+          # Calculate confidence from score (already adjusted with time decay)
+          confidence = node_with_score.score
 
-          # Get embedding from metadata
-          embedding_values = metadata.get('values')
-          if embedding_values is None:
-            logger.warning(f"Missing embedding values for topic {topic_id}")
+          # Get embedding
+          node_embedding = node.embedding if hasattr(node,
+                                                     'embedding') else None
+          embedding = node_embedding if node_embedding is not None else []
 
           # Create TopicState
           topic = TopicState(topic_id=topic_id,
-                             topic_name=topic_name,
-                             embedding=embedding_values,
-                             text=text,
-                             date_updated=last_updated,
-                             confidence=adjusted_score)
+                             topic_name=topic.name,
+                             text=topic.description,
+                             confidence=confidence,
+                             embedding=embedding,
+                             date_updated=date_updated)
+
           topics.append(topic)
 
         except Exception as e:
@@ -254,10 +280,90 @@ class PineconeManager:
       logger.error(f"Error retrieving topics: {str(e)}")
       return []
 
+  async def retrieve_logs(self,
+                          embedding: List[float],
+                          min_score: float = 0.5,
+                          top_k: int = 5) -> List[LogState]:
+    """
+    Retrieve logs similar to the query with time-decay applied to scores.
+  
+    Args:
+    query: Query string or embedding
+    min_score: Minimum similarity score (after decay)
+    top_k: Maximum number of results
+  
+    Returns:
+    List[LogState]: List of retrieved logs
+    """
+    try:
+      # Create an instance of our custom retriever
+      retriever = self.TimeDecayRetriever(
+          vector_store=self.log_store,
+          user_id=self.user_id,
+          calculate_time_decay_fn=self.calculate_time_decay,
+          adjust_score_fn=self.adjust_score_with_decay,
+          parent_manager=self)
+
+      # Get embedding for query if it's a string
+
+      # Use executor to run retrieval in a thread
+      results = await asyncio.get_event_loop().run_in_executor(
+          self.executor, lambda: retriever.retrieve(
+              embedding, min_score=min_score, top_k=top_k))
+
+      # Convert results to LogState objects
+      logs = []
+      for node_with_score in results:
+        try:
+          node = node_with_score.node
+          metadata = node.metadata
+
+          topic_id = metadata.get('topic_id')
+
+          @database_sync_to_async
+          def get_topic_and_log():
+              topic = Topic.objects.get(id=topic_id)
+              if not topic:
+                  return None, None
+
+              log = Log.objects.get(id=metadata.get('log_id'))
+              return topic, log
+
+          topic, log = await get_topic_and_log()
+
+          if not topic or not log:
+              continue
+
+          date_str = metadata.get('date')
+
+          try:
+            date = datetime.fromisoformat(date_str)
+          except (ValueError, TypeError):
+            logger.warning(f"Invalid date format: {date_str}")
+            continue
+
+          # Create LogState
+          log = LogState(topic_id=topic_id,
+                         topic_name=topic.name,
+                         text=log.text,
+                         date=date)
+
+          logs.append(log)
+
+        except Exception as e:
+          logger.warning(f"Error processing log: {str(e)}")
+          continue
+
+      return logs
+
+    except Exception as e:
+      logger.error(f"Error retrieving logs: {str(e)}")
+      return []
+
   async def get_topic_vector_by_id(self,
                                    topic_id: int) -> Optional[List[float]]:
     """
-    Fetch and return only the embedding of a topic by topic_id using LangChain's Pinecone wrapper.
+    Fetch and return only the embedding of a topic by topic_id.
 
     Args:
         topic_id: The ID of the topic to fetch
@@ -266,20 +372,29 @@ class PineconeManager:
         Optional[List[float]]: The embedding vector if found, None otherwise
     """
     try:
-      # Use similarity_search with metadata filter
+      # Import the necessary classes
+
+      # Create filter for topic_id
+      filters = MetadataFilters(filters=[
+          MetadataFilter(
+              key="topic_id", operator=FilterOperator.EQ, value=str(topic_id))
+      ])
+
+      # Create a retriever from the index with the filters
+      retriever = self.topic_index.as_retriever(filters=filters)
+
+      # Use an empty query string instead of a dummy embedding
       results = await asyncio.get_event_loop().run_in_executor(
           self.executor,
-          lambda: self.topic_store.similarity_search_with_score(
-              query="",  # Empty query since we're just filtering
-              k=1,
-              filter={"topic_id": topic_id}))
+          lambda: retriever.retrieve("")  # Empty query string
+      )
 
-      # Check if we got any results
+      # Check if we got results
       if results and len(results) > 0:
-        doc, score = results[0]
-        # The embedding should be in the metadata
-        if hasattr(doc, 'metadata') and 'values' in doc.metadata:
-          return doc.metadata['values']
+        node = results[0].node
+        # The embedding should be accessible through node properties
+        if hasattr(node, 'embedding') and node.embedding is not None:
+          return node.embedding
 
       return None
 
@@ -289,82 +404,136 @@ class PineconeManager:
 
   async def get_log_vector_by_id(self, log_id: int) -> Optional[List[float]]:
     """
-    Fetch and return only the embedding of a log by log_id using LangChain's Pinecone wrapper.
-  
+    Fetch and return only the embedding of a log by log_id.
+
     Args:
-    topic_id: The ID of the topic to fetch
-  
+        log_id: The ID of the log to fetch
+
     Returns:
-    Optional[List[float]]: The embedding vector if found, None otherwise
+        Optional[List[float]]: The embedding vector if found, None otherwise
     """
     try:
-      # Use similarity_search with metadata filter
-      results = await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: self.log_store.similarity_search_with_score(
-              query="",  # Empty query since we're just filtering
-              k=1,
-              filter={"log_id": log_id}))
+      # Create a dummy query with filter for log_id
 
-      # Check if we got any results
+      # Import the necessary classes
+      from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
+
+      # Create filter for log_id
+      filters = MetadataFilters(filters=[
+          MetadataFilter(
+              key="log_id", operator=FilterOperator.EQ, value=str(log_id))
+      ])
+
+      # Create a retriever from the index with the filters
+      retriever = self.log_index.as_retriever(filters=filters)
+
+      # Use the retriever to get the node
+      results = await asyncio.get_event_loop().run_in_executor(
+          self.executor, lambda: retriever.retrieve(""))
+
+      # Check if we got results
       if results and len(results) > 0:
-        doc, score = results[0]
-        # The embedding should be in the metadata
-        if hasattr(doc, 'metadata') and 'values' in doc.metadata:
-          return doc.metadata['values']
+        node = results[0].node
+        # The embedding should be accessible through node properties
+        if hasattr(node, 'embedding') and node.embedding is not None:
+          return node.embedding
 
       return None
 
     except Exception as e:
-      logger.error(f"Error retrieving topic embedding: {str(e)}")
+      logger.error(f"Error retrieving log embedding: {str(e)}")
       return None
 
+  #
+
   async def upsert_topic(self, topic: TopicState) -> List[float]:
+    """
+    Insert or update a topic in the vector store.
+
+    Args:
+        topic: The topic to upsert
+
+    Returns:
+        List[float]: The embedding of the inserted topic
+    """
     try:
+      # Prepare text for embedding
       prepared_text = self.prepare_text_for_embedding(topic.topic_name + " " +
                                                       topic.text)
 
-      # Most vector stores return a dict with 'ids' and 'embeddings'
-      result = await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: self.topic_store.add_texts(
-              texts=[prepared_text],
-              metadatas=[{
-                  "topic_id": topic.topic_id,
-                  "user_id": self.user_id,
-                  "topic_name": topic.topic_name,
-                  "text": topic.text,
-                  "date_updated": datetime.now().strftime('%Y-%m-%d')
-              }],
-              return_embeddings=True  # Add this parameter
-          ))
+      # Create document
+      doc = Document(text=prepared_text,
+                     metadata={
+                         "topic_id": topic.topic_id,
+                         "user_id": self.user_id,
+                         "date_updated": datetime.now().isoformat()
+                     })
 
-      # Extract the embedding from the result
-      embeddings = result.get('embeddings', [])
-      return embeddings[0] if embeddings else []
+      # Get embedding
+      embedding = await self.get_text_embedding(prepared_text)
+
+      now = datetime.now()
+      metadata = {
+          "topic_id": topic.topic_id,
+          "user_id": self.user_id,
+          "date_updated": now.timestamp()  # Store as numeric timestamp instead of ISO string
+      }
+
+      # Create node with the numeric timestamp
+      node = TextNode(text=prepared_text,
+                      metadata=metadata,
+                      embedding=embedding)
+
+      # Insert the node
+      await asyncio.get_event_loop().run_in_executor(
+          self.executor, lambda: self.topic_index.insert_nodes([node]))
+
+      return embedding
+
     except Exception as e:
       logger.error(f"Error upserting topic: {str(e)}")
       return []
 
   async def upsert_log(self, log: LogState) -> bool:
-    try:
+    """
+    Insert a log entry into the vector store.
 
+    Args:
+        log: The log to insert
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+      # Prepare text for embedding
       prepared_text = self.prepare_text_for_embedding(log.topic_name + " " +
                                                       log.text)
+      now = datetime.now()
+
+      metadata={
+           "user_id": self.user_id,
+           "topic_id": log.topic_id,
+           "chat_session_id": log.chat_session_id,
+           "date": now.timestamp()
+       }
+      # Create document
+      doc = Document(text=prepared_text,
+                     metadata=metadata)
+
+      # Get embedding
+      embedding = await self.get_text_embedding(prepared_text)
+
+      # Create node
+      node = TextNode(text=prepared_text,
+                      metadata=metadata,
+                      embedding=embedding)
+
+      # Insert the node
       await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: self.log_store.add_texts(
-              # process before embedding
-              texts=[prepared_text],
-              metadatas=[{
-                  "user_id": self.user_id,
-                  "topic_id": log.topic_id,
-                  "topic_name": log.topic_name,
-                  "text": log.text,
-                  "chat_session_id": log.chat_session_id,
-                  "date": datetime.now().isoformat()
-              }]))
+          self.executor, lambda: self.log_index.insert_nodes([node]))
+
       return True
+
     except Exception as e:
       logger.error(f"Error upserting log: {str(e)}")
       return False
@@ -372,48 +541,39 @@ class PineconeManager:
   async def update_topic_vector(self, topic: TopicState) -> bool:
     """
     Update the vector embedding of an existing topic with new text and name.
+
     Args:
-        topic (TopicState): The topic object containing updated information
+        topic: The topic object containing updated information
+
     Returns:
         bool: True if update successful, False otherwise
     """
-    prepared_text = self.prepare_text_for_embedding(topic.topic_name + " " +
-                                                    topic.text)
-
     try:
-      # Generate new embedding for the text
-      new_embedding = await asyncio.get_event_loop().run_in_executor(
-          self.executor, lambda: self.embedding.embed_query(prepared_text))
+      # Prepare text for embedding
+      prepared_text = self.prepare_text_for_embedding(topic.topic_name + " " +
+                                                      topic.text)
 
-      # Get the existing metadata
-      existing_docs = await asyncio.get_event_loop().run_in_executor(
-          self.executor, lambda: self.topic_store.get_by_metadata(
-              {'topic_id': topic.topic_id}))
+      # Generate new embedding
+      embedding = await self.get_text_embedding(prepared_text)
 
-      if not existing_docs:
-        logger.error(f"Topic with ID {topic.topic_id} not found")
-        return False
-
-      existing_metadata = existing_docs[0].metadata
-
-      # Update the metadata with new values and current timestamp
-      updated_metadata = {
-          **existing_metadata, "topic_name": topic.topic_name,
-          "text": topic.text,
-          "date_updated": datetime.now().strftime('%Y-%m-%d')
-      }
-
-      # Delete the old vector
+      # Delete existing topic
       await asyncio.get_event_loop().run_in_executor(
           self.executor,
-          lambda: self.topic_store.delete(filter={"topic_id": topic.topic_id}))
+          lambda: self.topic_store.delete(filters={"topic_id": topic.topic_id})
+      )
 
-      # Insert the new vector with updated metadata
+      # Create new node with updated data
+      node = TextNode(text=prepared_text,
+                      metadata={
+                          "topic_id": topic.topic_id,
+                          "user_id": self.user_id,
+                          "date_updated": datetime.now().isoformat()
+                      },
+                      embedding=embedding)
+
+      # Insert the updated node
       await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: self.topic_store.add_texts(texts=[prepared_text],
-                                             embeddings=[new_embedding],
-                                             metadatas=[updated_metadata]))
+          self.executor, lambda: self.topic_index.insert_nodes([node]))
 
       return True
 

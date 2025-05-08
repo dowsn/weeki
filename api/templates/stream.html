@@ -60,7 +60,7 @@
 <body>
     <div id="status" class="status">WebSocket Status: Connecting...</div>
     <div id="chat-box"></div>
-    <div class="controls">
+  <div class="controls">
         <input type="text" id="message-input" placeholder="Type your message...">
         <button onclick="sendMessage()">Send</button>
     </div>
@@ -80,7 +80,7 @@
         let chat_session_id = "{{chat_session_id}}";
         // Get the current host from the browser
         const host = window.location.hostname;
-        const port = window.location.port;
+        const port = window.location.port ? window.location.port : "";
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
         // Log connection details for debugging

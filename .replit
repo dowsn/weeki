@@ -1,15 +1,17 @@
 entrypoint = "manage.py"
 modules = ["python-3.10:v18-20230807-322e88b", "postgresql-16"]
 hidden = [".pythonlibs"]
-run = "python manage.py runserver 0.0.0.0:3000"
+run = "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application"
+
 
 [nix]
 channel = "stable-23_11"
+packages = ["bash", "libxcrypt"]
 [deployment]
 run = [
   "sh",
   "-c",
-  "watchfiles --reload-signal SIGHUP 'python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
+  "watchfiles --reload-signal SIGHUP 'python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application'",
 ]
 
 

@@ -1,4 +1,7 @@
 django
+llama-index
+llama-index-vector-stores-pinecone
+llama-index-embeddings-openai
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
@@ -24,5 +27,7 @@ pydantic
 deepgram
 stripe
 jinja2
+llama-index-embeddings-huggingface --no-deps
+torch
 Pillow
 nltk==3.9.1
