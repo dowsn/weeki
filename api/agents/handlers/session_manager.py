@@ -58,8 +58,9 @@ class SessionManager:
     prompt = self.prompts["end_soon"].format(username=self.state.username)
     print("prompt", prompt)
 
+    print("invoking ending soon!!!")  # Moved up before config check
+    
     # give there that 5 minutes is left to prompt
-    print("invoking ending soon!!!")
     response = self.ai_model.invoke(prompt, config=self.model_config_time)
     if isinstance(response, dict) and 'content' in response:
       response_text = response['content']
