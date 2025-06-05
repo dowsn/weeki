@@ -331,13 +331,13 @@ class ConversationState(BaseModel):
     print(self.messages)
     if self.saved_query and self.saved_query != "":
       self.prompt_query = self.saved_query
-      # When using saved_query, we want to exclude recent human messages from history
-      # Find all consecutive human messages from the bottom that match the saved_query
+      # When using saved_query, exclude ALL recent human messages from history
+      # because they're part of the topic exploration context
       last_human_indices = []
       
       # Start from the end and collect consecutive human messages
       for i in range(len(self.messages) - 1, -1, -1):
-        if self.messages[i].role == "Human" and self.messages[i].show_in:
+        if self.messages[i].role == "Human":
           last_human_indices.append(i)
         else:
           # Stop when we hit a non-human message
