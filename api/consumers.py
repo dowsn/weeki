@@ -17,11 +17,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def connect(self):
 
-    print("ChatConsumer.connect() called")
-    self.close_code = None  # Initialize close code
-    self.sending_final_message = False  # Flag to prevent premature closing
-    self.should_close_after_final_message = False  # Flag for timeout-triggered closure
-
     self.is_connected = False
 
     # Get chat_session from URL params
@@ -142,8 +137,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def disconnect(self, close_code):
     print(f"Disconnecting with code: {close_code}")
-    self.close_code = close_code  # Store the close code
-    self.is_monitoring = False
+    self.is_connected = False
+
+    # CRITICAL: Stop time monitoring FIRST
+    if hasattr(self, 'agent') and self.agent is not None:
+      if hasattr(self.agent,
+                 'moment_manager') and self.agent.moment_manager is not None:
+        if hasattr(self.agent.moment_manager, 'time_manager'):
+          print("Stopping time manager from disconnect")
+          self.agent.moment_manager.time_manager.stop_monitoring()
+          # Also set session as ended to prevent further time updates
+          self.agent.moment_manager.session_ended = True
+
+    # Fix the order of monitoring cleanup
+    if hasattr(self, 'is_monitoring'):
+      self.is_monitoring = False
 
     if hasattr(self, 'monitor_task'):
       self.monitor_task.cancel()
@@ -278,16 +286,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
       }))
     except Exception as e:
       print(f"Error processing message: {str(e)}")
-      # Only send error if connection is still open
-      if not getattr(self, 'close_code', None):
-        try:
-          await self.send(text_data=json.dumps({
-              'type': 'error',
-              'error': str(e)
-          }))
-        except Exception:
-          # Connection already closed, ignore send error
-          pass
+      await self.send(text_data=json.dumps({'type': 'error', 'error': str(e)}))
 
   async def handle_close(self, complete: bool, message=""):
     """Simplified close handling with proper time manager cleanup"""
@@ -318,7 +317,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Only get end message if we don't already have one and we're completing
         if complete and not final_message:
-
+          print("Getting final message from agent")
+         
           final_message = await self.agent.end_session()
           print(
               f"Got end message from agent: {final_message[:100] if final_message else 'None'}..."
@@ -329,16 +329,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
           print("Streaming final message")
           await self.stream_tokens(final_message,
                                    message_type="automatic_message")
-          
-          # Wait a bit to ensure message is fully sent
-          await asyncio.sleep(0.1)
 
-      # Only close the connection if this was an explicit close request
-      # AND after we've finished streaming any messages
-      # AND we're not currently sending a final message
-      if not getattr(self, 'close_code', None) and not getattr(
-          self, 'sending_final_message', False):
-
+      # Close the connection
+      if self.is_connected and not getattr(self, 'close_code', None):
         print("Closing WebSocket connection...")
         await self.close(code=4000)
 
@@ -361,66 +354,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                           topics: str = "",
                           message_type: str = "message"):
     """Helper method to stream tokens with proper format"""
-    # Check if connection is still open before streaming
-    if getattr(self, 'close_code', None):
-      print("WebSocket already closed, skipping message streaming")
-      return
-
-    # Set flag to indicate we're sending a final message
-    self.sending_final_message = True
-
-    message = '*** ' + message
-    # Split the message into tokens (words)
-    tokens = message.split()
-
-    # Iterate through tokens with their indices
-    for i, token in enumerate(tokens):
-      # Check connection state before each token
-      if getattr(self, 'close_code', None):
-        print("WebSocket closed during streaming, stopping")
-        return
-
-      token_with_space = token
-      if i != 0:  # Add space to all tokens except the first one
-        token_with_space = " " + token
-
-      try:
-        await self.send(text_data=json.dumps({
-            'type': 'message',
-            'text': token_with_space
-        }))
-        await asyncio.sleep(0.01)  # Small delay
-      except Exception as e:
-        print(f"Error sending token, connection likely closed: {e}")
-        return
-
-    # Send stream complete signal only if connection is still open
-    try:
-      await self.send(text_data=json.dumps({'type': 'stream_complete'}))
-      # Give frontend time to process the completion signal
-      await asyncio.sleep(0.05)
-    except Exception as e:
-      print(f"Error sending stream complete, connection likely closed: {e}")
-    finally:
-      # Clear the flag when we're done sending the final message
-      self.sending_final_message = False
-
-      # If this was a timeout-triggered final message, close the connection
-      if hasattr(self, 'should_close_after_final_message'
-                 ) and self.should_close_after_final_message:
-        print("Closing connection after final timeout message")
-        self.should_close_after_final_message = False
-        try:
-          # Add a small delay before closing to ensure message is processed
-          await asyncio.sleep(0.1)
-          await self.close(code=4000)
-        except Exception as e:
-          print(f"Error closing connection after final message: {e}")
-
-  async def stream_final_timeout_message(self, message: str):
-    """Stream final message when timeout occurs and then close connection"""
-    self.should_close_after_final_message = True
-    await self.stream_tokens(message)
 
     # ADD THIS CHECK - Check if connection is still active
     if not self.is_connected:

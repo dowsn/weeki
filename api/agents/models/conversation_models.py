@@ -108,20 +108,21 @@ class ConversationState(BaseModel):
 
   async def prepare_prompt_end(self):
     from channels.db import database_sync_to_async
+    from app.models import SessionTopic
 
     self.prompt_topics = ""
 
     # Wrap the QuerySet operation with database_sync_to_async
     @database_sync_to_async
     def get_session_topics():
-      return list(SessionTopic.objects.filter(session_id=self.chat_session_id))
+      return list(SessionTopic.objects.select_related('topic').filter(session=self.chat_session_id))
 
     discussed_topics = await get_session_topics()
 
     for topic in discussed_topics:
-      self.prompt_topics += f"Topic id:{topic.topic_id}\n"
-      self.prompt_topics += f"name:{topic.topic_name}\n"
-      self.prompt_topics += f"description:{topic.text}\n"
+      self.prompt_topics += f"Topic id:{topic.topic.id}\n"  # Access through the foreign key
+      self.prompt_topics += f"name:{topic.topic.name}\n"  # Access the name field of the related Topic
+      self.prompt_topics += f"description:{topic.topic.description}\n"  # Access description of the related Topic
     self.prompt_topics += "\n"
 
     self.prompt_conversation_history = self.get_complete_conversation_history()
@@ -334,7 +335,7 @@ class ConversationState(BaseModel):
       # When using saved_query, exclude ALL recent human messages from history
       # because they're part of the topic exploration context
       last_human_indices = []
-      
+
       # Start from the end and collect consecutive human messages
       for i in range(len(self.messages) - 1, -1, -1):
         if self.messages[i].role == "Human":

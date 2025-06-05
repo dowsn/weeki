@@ -185,11 +185,10 @@ class SessionManager:
 
   def prepare_new_prompt_topics(self):
     for topic in self.topics:
-      self.prompt_topics += f"Topic id:{topic.topic_id}\n"
-      self.prompt_topics += f"name:{topic.topic_name}\n"
-      self.prompt_topics += f"description:{topic.text}\n"
-
-      self.prompt_topics += "\n"
+        self.prompt_topics += f"Topic id:{topic['topic_id']}\n"     # ✅ Use dictionary key access
+        self.prompt_topics += f"name:{topic['topic_name']}\n"       # ✅ Use dictionary key access
+        self.prompt_topics += f"description:{topic['text']}\n"      # ✅ Use dictionary key access
+        self.prompt_topics += "\n"
 
     #go through state and generate strings for prompt before update actually
 
@@ -224,15 +223,16 @@ class SessionManager:
       print("No topics discussed; Exiting handle_state_end")
       return
 
+    # here doesn't receive the things.
     # Get the current state
     topics = self.state.prompt_topics
-    chat_history = self.state.conversation_context
+    chat_history = self.state.prompt_conversation_history
     character = self.state.prompt_character
 
     # Step 1: Process topics and character updates
     print("Processing topics and character updates")
     topic_char_prompt = self.prompts["process_topics_and_character"].invoke({
-        "topic":
+        "topics":
         topics,
         "character":
         character,

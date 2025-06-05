@@ -433,8 +433,8 @@ class MomentManager:
 
   async def end_session(self):
     """REPLACE ENTIRE METHOD - Handle explicit session end"""
-    if self.session_ended:
-      return ""  # Already ended
+    # if self.session_ended:
+    #   return ""  # Already ended
 
     self.session_ended = True
     self.time_manager.stop_monitoring()

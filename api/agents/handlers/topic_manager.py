@@ -106,6 +106,7 @@ class TopicManager:
     topic_states = []
     for st in session_topics:
       topic = st.topic
+      print("topic id", topic.id)
       embedding = await self.pinecone_manager.get_topic_vector_by_id(topic.id)
 
       topic_states.append(

@@ -98,7 +98,6 @@ class PineconeManager:
         top_k=10,  # Get more candidates initially
         max_results=3):  # Final result limit
 
-  
       # Build filters - only user_id for now
       filter_list = [
           MetadataFilter(key="user_id",
@@ -209,8 +208,6 @@ class PineconeManager:
       final_threshold: float = 0.5,  # Final quality threshold
       max_results: int = 3) -> List[TopicState]:
 
-
-
     try:
       # Create retriever with time boost functions
       retriever = self.TimeDecayRetriever(
@@ -283,7 +280,6 @@ class PineconeManager:
     except Exception as e:
       logger.error(f"Error retrieving topics: {str(e)}")
       return []
-
 
   async def retrieve_logs(self,
                           embedding: List[float],
@@ -384,26 +380,33 @@ class PineconeManager:
         Optional[List[float]]: The embedding vector if found, None otherwise
     """
     try:
-      # Import the necessary classes
-
-      # Create filter for topic_id
+      # Create filter for topic_id and user_id
+      # Fix typing issue by explicitly typing the list or constructing directly
       filters = MetadataFilters(filters=[
           MetadataFilter(
-              key="topic_id", operator=FilterOperator.EQ, value=str(topic_id))
+              key="topic_id", operator=FilterOperator.EQ, value=str(topic_id)),
+          MetadataFilter(key="user_id",
+                         operator=FilterOperator.EQ,
+                         value=str(self.user_id))
       ])
 
-      # Create a retriever from the index with the filters
-      retriever = self.topic_index.as_retriever(filters=filters)
+      # Create a dummy query vector (all zeros) since we only care about the filter
+      # The embedding dimension should match your model (1536 for text-embedding-3-small)
+      dummy_vector = [0.0] * 1536
 
-      # Use an empty query string instead of a dummy embedding
-      results = await asyncio.get_event_loop().run_in_executor(
-          self.executor,
-          lambda: retriever.retrieve("")  # Empty query string
-      )
+      # Create vector store query with the dummy vector and filters
+      vector_store_query = VectorStoreQuery(
+          query_embedding=dummy_vector,
+          similarity_top_k=1,  # We only want one result
+          filters=filters)
+
+      # Execute query using the vector store directly
+      query_result = await asyncio.get_event_loop().run_in_executor(
+          self.executor, lambda: self.topic_store.query(vector_store_query))
 
       # Check if we got results
-      if results and len(results) > 0:
-        node = results[0].node
+      if query_result.nodes and len(query_result.nodes) > 0:
+        node = query_result.nodes[0].node
         # The embedding should be accessible through node properties
         if hasattr(node, 'embedding') and node.embedding is not None:
           return node.embedding
@@ -412,48 +415,6 @@ class PineconeManager:
 
     except Exception as e:
       logger.error(f"Error retrieving topic embedding: {str(e)}")
-      return None
-
-  async def get_log_vector_by_id(self, log_id: int) -> Optional[List[float]]:
-    """
-    Fetch and return only the embedding of a log by log_id.
-
-    Args:
-        log_id: The ID of the log to fetch
-
-    Returns:
-        Optional[List[float]]: The embedding vector if found, None otherwise
-    """
-    try:
-      # Create a dummy query with filter for log_id
-
-      # Import the necessary classes
-      from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
-
-      # Create filter for log_id
-      filters = MetadataFilters(filters=[
-          MetadataFilter(
-              key="log_id", operator=FilterOperator.EQ, value=str(log_id))
-      ])
-
-      # Create a retriever from the index with the filters
-      retriever = self.log_index.as_retriever(filters=filters)
-
-      # Use the retriever to get the node
-      results = await asyncio.get_event_loop().run_in_executor(
-          self.executor, lambda: retriever.retrieve(""))
-
-      # Check if we got results
-      if results and len(results) > 0:
-        node = results[0].node
-        # The embedding should be accessible through node properties
-        if hasattr(node, 'embedding') and node.embedding is not None:
-          return node.embedding
-
-      return None
-
-    except Exception as e:
-      logger.error(f"Error retrieving log embedding: {str(e)}")
       return None
 
   def calculate_time_boost(self,
@@ -484,7 +445,6 @@ class PineconeManager:
     """Apply time boost to base score"""
     time_boost = self.calculate_time_boost(last_updated)
     return base_score * (1 + time_boost)
-
 
   async def upsert_topic(self, topic: TopicState) -> List[float]:
     try:
