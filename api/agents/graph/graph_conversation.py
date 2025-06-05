@@ -282,8 +282,13 @@ class ConversationGraphManager:
 
     prompt = hub.pull("chat_mr_week")
 
+    # Avoid duplicate content when history and query are the same (e.g., at conversation start)
+    conversation_history = state.prompt_conversation_history
+    if conversation_history.strip() == state.prompt_query.strip():
+        conversation_history = ""
+
     prompt = prompt.format(
-        conversation_history=state.prompt_conversation_history,
+        conversation_history=conversation_history,
         query=state.prompt_query,
         topics=state.prompt_topics,
         character=state.character,

@@ -227,12 +227,15 @@ class ConversationAgent:
     # await process_cached_logs()
     # await process_current_logs()
 
-  async def stream_message(self, message: str) -> None:
+  async def stream_message(self, message: str, is_final_timeout: bool = False) -> None:
     """Handle the ending soon event by sending tokens to websocket."""
     await self._save_message("assistant", message)
 
-    # Use the consumer's stream_tokens method for consistency
-    await self.ws_consumer.stream_tokens(message)
+    # Use different method if this is a final timeout message
+    if is_final_timeout:
+      await self.ws_consumer.stream_final_timeout_message(message)
+    else:
+      await self.ws_consumer.stream_tokens(message)
 
   async def get_end_message(self) -> str:
     """Get the final end session message without any side effects"""

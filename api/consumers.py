@@ -17,6 +17,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def connect(self):
     print("ChatConsumer.connect() called")
+    self.close_code = None  # Initialize close code
+    self.sending_final_message = False  # Flag to prevent premature closing
+    self.should_close_after_final_message = False  # Flag for timeout-triggered closure
 
     # Get chat_session from URL params
     self.chat_session_id = self.scope['url_route']['kwargs'].get(
@@ -143,6 +146,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def disconnect(self, close_code):
     print(f"Disconnecting with code: {close_code}")
+    self.close_code = close_code  # Store the close code
     self.is_monitoring = False
     if hasattr(self, 'monitor_task'):
       self.monitor_task.cancel()
@@ -252,7 +256,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
       }))
     except Exception as e:
       print(f"Error processing message: {str(e)}")
-      await self.send(text_data=json.dumps({'type': 'error', 'error': str(e)}))
+      # Only send error if connection is still open
+      if not getattr(self, 'close_code', None):
+        try:
+          await self.send(text_data=json.dumps({'type': 'error', 'error': str(e)}))
+        except Exception:
+          # Connection already closed, ignore send error
+          pass
 
   async def handle_close(self, complete: bool):
     """Handle closing operations including saving remaining time and sending final message if needed"""
@@ -274,7 +284,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
       # Only close the connection if this was an explicit close request
       # AND after we've finished streaming any messages
-      if not getattr(self, 'close_code', None):
+      # AND we're not currently sending a final message
+      if not getattr(self, 'close_code', None) and not getattr(self, 'sending_final_message', False):
         print("Closing WebSocket connection...")
         await self.close(code=4000)
 
@@ -291,21 +302,58 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def stream_tokens(self, message: str):
     """Helper method to stream tokens with proper format"""
+    # Check if connection is still open before streaming
+    if getattr(self, 'close_code', None):
+      print("WebSocket already closed, skipping message streaming")
+      return
+    
+    # Set flag to indicate we're sending a final message
+    self.sending_final_message = True
+    
     message = '*** ' + message
     # Split the message into tokens (words)
     tokens = message.split()
 
     # Iterate through tokens with their indices
     for i, token in enumerate(tokens):
+      # Check connection state before each token
+      if getattr(self, 'close_code', None):
+        print("WebSocket closed during streaming, stopping")
+        return
+        
       token_with_space = token
       if i != 0:  # Add space to all tokens except the first one
         token_with_space = " " + token
 
-      await self.send(text_data=json.dumps({
-          'type': 'message',
-          'text': token_with_space
-      }))
-      await asyncio.sleep(0.01)  # Small delay
+      try:
+        await self.send(text_data=json.dumps({
+            'type': 'message',
+            'text': token_with_space
+        }))
+        await asyncio.sleep(0.01)  # Small delay
+      except Exception as e:
+        print(f"Error sending token, connection likely closed: {e}")
+        return
 
-    # Send stream complete signal
-    await self.send(text_data=json.dumps({'type': 'stream_complete'}))
+    # Send stream complete signal only if connection is still open
+    try:
+      await self.send(text_data=json.dumps({'type': 'stream_complete'}))
+    except Exception as e:
+      print(f"Error sending stream complete, connection likely closed: {e}")
+    finally:
+      # Clear the flag when we're done sending the final message
+      self.sending_final_message = False
+      
+      # If this was a timeout-triggered final message, close the connection
+      if hasattr(self, 'should_close_after_final_message') and self.should_close_after_final_message:
+        print("Closing connection after final timeout message")
+        self.should_close_after_final_message = False
+        try:
+          await self.close(code=4000)
+        except Exception as e:
+          print(f"Error closing connection after final message: {e}")
+
+  async def stream_final_timeout_message(self, message: str):
+    """Stream final message when timeout occurs and then close connection"""
+    self.should_close_after_final_message = True
+    await self.stream_tokens(message)

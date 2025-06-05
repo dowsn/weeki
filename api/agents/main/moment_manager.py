@@ -161,7 +161,7 @@ class MomentManager:
     elif self.remaining_minutes == 0:
       message = await self.session_manager.handle_end()
       if self.stream_message:
-        await self.stream_message(message)
+        await self.stream_message(message, is_final_timeout=True)
 
   async def run_agent(self, query: str,
                       agent_context: dict) -> ConversationState:
