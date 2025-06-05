@@ -329,6 +329,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
           print("Streaming final message")
           await self.stream_tokens(final_message,
                                    message_type="automatic_message")
+          
+          # Wait a bit to ensure message is fully sent
+          await asyncio.sleep(0.1)
 
       # Only close the connection if this was an explicit close request
       # AND after we've finished streaming any messages
@@ -394,6 +397,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Send stream complete signal only if connection is still open
     try:
       await self.send(text_data=json.dumps({'type': 'stream_complete'}))
+      # Give frontend time to process the completion signal
+      await asyncio.sleep(0.05)
     except Exception as e:
       print(f"Error sending stream complete, connection likely closed: {e}")
     finally:
@@ -406,6 +411,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print("Closing connection after final timeout message")
         self.should_close_after_final_message = False
         try:
+          # Add a small delay before closing to ensure message is processed
+          await asyncio.sleep(0.1)
           await self.close(code=4000)
         except Exception as e:
           print(f"Error closing connection after final message: {e}")
