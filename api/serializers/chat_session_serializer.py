@@ -6,7 +6,7 @@ class Chat_SessionSerializer(serializers.ModelSerializer):
 
   class Meta:
     model = Chat_Session
-    fields = ('id', 'date', 'time_left', 'title', 'summary')
+    fields = ('id', 'date', 'time_left', 'title', 'summary', 'character')
 
   def get_date(self, obj):
     return obj.date.strftime('%Y-%m-%d')

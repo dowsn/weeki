@@ -1,14 +1,16 @@
 from langgraph.graph import StateGraph
 from api.agents.models.conversation_models import ConversationState, TopicState, TopicJSON, TopicPotentialJSON
 from api.agents.handlers.topic_manager import TopicManager
-from app.models import Topic
+from app.models import Prompt, Topic
 from langchain import hub
 from datetime import datetime
 from asgiref.sync import sync_to_async
+from api.agents.handlers.conversation_helper import ConversationHelper
 
 import logging
 import json
 from typing import Any
+from langsmith import Client
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +25,8 @@ class ConversationGraphManager:
     self.topic_manager = topic_manager
     self.log_manager = log_manager
     self.conversation_helper = conversation_helper
+
+    self.client = Client()
 
   def _create_conversation_graph(self) -> Any:
     workflow = StateGraph(ConversationState)
@@ -73,19 +77,16 @@ class ConversationGraphManager:
 
     topic_confirmation = state.topic_confirmation
 
-    print("topic_confirmation", topic_confirmation)
-
     if topic_confirmation == 1:
       state = await self._save_topic(state)
     elif topic_confirmation == 0:
       state = await self._leave_topic(state)
     elif topic_confirmation == 2:
-      state.prepare_prompt_topic()
+      state.prompt_query = state.current_message
 
     return state
 
   async def _validation(self, state: ConversationState) -> ConversationState:
-    print("validation")
     # logic with checker of the response
 
     # Check if the response is valid
@@ -98,16 +99,20 @@ class ConversationGraphManager:
 
     print("discussing")
     # Generate question based on current context
-    prompt = hub.pull("topic_discuss")
-    prompt = prompt.format(
-        potential_topic=state.potential_topic,
-        asked_questions=state.prompt_asked_questions,
-        query=state.prompt_query,
-    )
-    print(f"discuss topic json: {prompt}")
+
+    prompt = self.client.pull_prompt("topic_discuss")
+
+    print("prompt_query_discuss, should be saved if saved query",
+          state.prompt_query)
+
+    prompt = prompt.invoke({
+        "potential_topic": state.potential_topic,
+        "asked_questions": state.prompt_asked_questions,
+        "query": state.current_message
+    })
 
     response = await self.conversation_helper.run_until_json(
-        prompt, TopicPotentialJSON)
+        prompt=prompt, response_type=TopicPotentialJSON)
 
     #json topic, question
     topic_name = response["topic_name"]
@@ -117,68 +122,27 @@ class ConversationGraphManager:
     state.potential_topic = f"Topic Name: {topic_name}\n"
     state.potential_topic += f"Topic Description: {text}"
 
-    first_sentence = "Ok, looks like we might have a new topic here we haven't discussed yet. Am I right?" if state.prompt_asked_questions == "NA" else "Let's explore this new topic further."
+    state.prompt_asked_questions += f"{question}\n"
+
+    first_sentence = "Ok, looks like we might have a new topic here we haven't discussed yet. Am I right?" if state.prompt_asked_questions == "" else "Let's explore this new topic further."
 
     response_text = first_sentence + " Here is how I understand it so far:\n\n" + topic_name + "\n\n" + text + "\n\nMaybe this would also interest me: " + question + " " + "\n\nDo you want to explore this topic further? Do you want to save it? Or do you want to leave the exploration of the topic and go on with the conversation."
+
+    state.topic_names = response["topic_name"]
 
     # Set the response in a way that will be preserved
     state.response = response_text
 
     # Ensure the flag is set properly
-    print(f"Response in _discuss_topic: {state.response[:50]}...")
 
     return state
 
   async def _leave_topic(self, state: ConversationState) -> ConversationState:
-    state.potential_topic = ""
     state.prompt_asked_questions = ""
 
-    print("leaving topic")
-    # Fix: await the coroutine
+    # Process message with restored query and history
     state = await self._process_message(state)
-
     return state
-
-  async def run_until_json(self, prompt, type, max_attempts=3):
-    for attempt in range(max_attempts):
-      try:
-        response_obj = self.ai_model.invoke(prompt,
-                                            config={
-                                                "configurable": {
-                                                    "foo_temperature": 0.0,
-                                                    "foo_max_tokens": 50,
-                                                    "foo_response_format":
-                                                    type,
-                                                    "foo_reasoning_effort":
-                                                    "low"
-                                                }
-                                            })
-        content = response_obj.content.strip()
-
-        # Try to find JSON in the response
-        if '{' in content and '}' in content:
-          json_start = content.find('{')
-          json_end = content.rfind('}') + 1
-          json_str = content[json_start:json_end]
-          parsed = json.loads(json_str)
-          return parsed
-        else:
-          logging.warning(f"No JSON structure found in: {content[:100]}...")
-
-      except json.JSONDecodeError as e:
-        logging.warning(f"JSON decode error on attempt {attempt+1}: {str(e)}")
-      except Exception as e:
-        logging.error(f"Error during JSON extraction: {str(e)}")
-
-      # Modify prompt to be clearer about JSON requirements
-      prompt = f"Please respond with valid JSON only containing 'name' and 'text' fields. Original prompt: {prompt}"
-
-    # If we reach here, we've failed after max_attempts
-    logging.error(f"Failed to get valid JSON after {max_attempts} attempts")
-    return {
-        "name": "",
-        "text": ""
-    }  # Return empty defaults instead of raising exception
 
   async def _save_topic(self, state: ConversationState) -> ConversationState:
     """Validate if we hav
@@ -186,14 +150,14 @@ class ConversationGraphManager:
     # Analyze collected responses
 
     #here
-    prompt = hub.pull("create_topic_json")
 
-    print(f"saving potential topic: {state.potential_topic}")
-    prompt = prompt.format(topic=state.potential_topic)
+    prompt = self.client.pull_prompt("create_topic_json")
 
-    response = await self.run_until_json(prompt, TopicJSON)
+    prompt = prompt.invoke({
+        "topic": state.potential_topic,
+    })
 
-    print(f"response ii: {response}")
+    response = await self.conversation_helper.run_until_json(prompt, TopicJSON)
 
     topic_name = response.get('name', '')
     topic_text = response.get('text', '')
@@ -227,87 +191,120 @@ class ConversationGraphManager:
 
   async def _handle_start(self, state: ConversationState) -> ConversationState:
     """Start a new conversation"""
+
     if state.potential_topic == "":
-      # Check logs and topics when either:
-      # 1. There are no current  topics yet, OR
-      # 2. We haven't checked for a while (based on character thresholds)
-      # condition_treshold = state.chars_since_check < self.char_threshold or len(
-      #     state.current_message) < self.message_char_threshold
-      # condition_no_topics = len(state.current_topics) == 0
-      # print(f"condition threshold: {condition_treshold}")
-      # print(f"condition no topics: {condition_no_topics}")
 
-      # if state.saved_query != "":
-      # len(state.current_logs) == 0 or
-      # len(state.current_topics) == 0) or (
-      #     state.chars_since_check < self.char_threshold
-      #     or len(state.current_message) < self.message_char_threshold):
-      # Update embedding for current context
-      await state.update_embedding()
-      state = await self.topic_manager.check_topics(state)
-      state = await self.log_manager.check_logs(state)
+      state.split_messages(window_size=2000)
 
-      state.split_conversation_context()
-      state.saved_query = state.prompt_query
-      state.chat_session.saved_query = state.saved_query
+      same_topic = 0
 
-      # await sync_to_async(state.chat_session.save)()
+      if len(state.current_topics) > 0:
+
+        state.prepare_topics_to_prompt()
+
+        prompt = self.client.pull_prompt("change_of_topics")
+
+        change_of_topics_response = prompt.invoke({
+            "conversation_history":
+            state.prompt_conversation_history,
+            "query":
+            state.prompt_query,
+            "topics":
+            state.prompt_topics
+        })
+
+        response_obj = self.ai_model.invoke(change_of_topics_response)
+
+        response = response_obj.content
+
+        # 0 off topic
+        if str(response) == "1":
+          same_topic = 1
+
+      if same_topic == 0:
+
+        # Save query before potentially entering topic exploration
+        # This will save the recent human messages up to 1000 chars
+        await state.update_embedding()
+
+        state.saved_query = state.prompt_query  # Save this for topic exploration
+
+        state = await self.topic_manager.check_topics(state)
+
+        print(f"potential_topic after check_topics: '{state.potential_topic}'")
+
+    else:
+      # Already in topic exploration, don't update saved_query
+      pass
 
     return state
 
   async def _should_explore_topics(self, state: ConversationState) -> bool:
     """Determine if we should explore topics based on state"""
     should_explore = state.potential_topic != ""
+
+    print("shold explore", should_explore)
     return should_explore
 
   async def _process_message(self, state: ConversationState):
     # here update
-    print("process message")
     state.response_type = "message"
+
+    if not state.embedding:
+      await state.update_embedding()
+
+    state.embedding = None
+
+    state = await self.log_manager.check_logs(state)
 
     state.prepare_prompt_process_message()
 
-    first_sentence = "***"
-    print(f"state.saved_query: {state.saved_query}")
-    if state.saved_query != "":
-      state.prompt_query = state.saved_query
-      state.saved_query = ""
-      state.chat_session.saved_query = ""
+    state.saved_query = ""
 
-      # await sync_to_async(state.chat_session.save)()
+    prompt = self.client.pull_prompt("chat_mr_week")
 
-      first_sentence = first_sentence + "Ok, let's continue with the conversation.\n"
+    # if leave topic
+    end_sentence = ""
+    if state.topic_confirmation == 0:
+      end_sentence = "\n\nCould you please let me know if we talk about some topic we discussed already or is this a new topic? And if then tell please more about it."
 
-    print(f"state.prompt_query: {state.prompt_query}")
+    state.topic_confirmation = 2
 
-    prompt = hub.pull("chat_mr_week")
+    prompt = prompt.invoke({
+        "username": state.username,
+        "conversation_history": state.prompt_conversation_history,
+        "query": state.prompt_query,
+        "topics": state.prompt_topics,
+        "character": state.prompt_character,
+        "logs": state.prompt_logs,
+    })
 
-    # Avoid duplicate content when history and query are the same (e.g., at conversation start)
-    conversation_history = state.prompt_conversation_history
-    if conversation_history.strip() == state.prompt_query.strip():
-        conversation_history = ""
 
-    prompt = prompt.format(
-        conversation_history=conversation_history,
-        query=state.prompt_query,
-        topics=state.prompt_topics,
-        character=state.character,
-        username=state.username,
-        logs=state.prompt_logs)
+    state.potential_topic = ""
 
     response_obj = self.ai_model.invoke(prompt)
 
     response = response_obj.content
 
-    response = first_sentence + response
+    response = response + end_sentence
 
     state.response = response
     return state
 
   async def _handle_end(self, state: ConversationState) -> ConversationState:
-    print(f"In _handle_end, state type: {type(state)}")
-    print(f"State attributes: {dir(state)}")
-    print(f"Has response: {hasattr(state, 'response')}")
+
+    # state.embedding = None
+
+    state.current_logs = []
+
+    if not state.saved_query:
+      state.topic_names = ", ".join(topic.topic_name
+                                    for topic in state.current_topics)
+    print('topic names', state.topic_names)
+
+    state.topic_ids = ", ".join(
+        str(topic.topic_id) for topic in state.current_topics)
+
     if hasattr(state, 'response'):
       print(f"Response value: {state.response[:50]}...")
 

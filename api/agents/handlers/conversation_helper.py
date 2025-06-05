@@ -28,65 +28,110 @@ class ConversationHelper:
                            temperature: float = 0.0,
                            reasoning_effort: str = "low") -> Dict[str, Any]:
     """
-        Run the model with the given prompt and extract valid JSON from the response.
-        Makes multiple attempts if needed.
-
-        Args:
-            prompt: The prompt to send to the model
-            response_type: The expected response format type
-            max_attempts: Maximum number of retry attempts (default: 3)
-            temperature: Model temperature setting (default: 0.0)
-            max_tokens: Maximum tokens for response (default: 50)
-            reasoning_effort: Level of reasoning effort (default: "low")
-
-        Returns:
-            Dict containing the extracted JSON data
-
-        Note:
-            If extraction fails after max_attempts, returns an empty dict with
-            default values based on the expected fields
-        """
+      Run the model with the given prompt and extract valid JSON from the response.
+      Uses LangChain's with_structured_output() method for reliable structured output.
+      Makes multiple attempts if needed.
+      """
     for attempt in range(max_attempts):
       try:
         # Configure model parameters
         config = {
             "configurable": {
                 "foo_temperature": temperature,
-                "foo_response_format": response_type,
                 "foo_reasoning_effort": reasoning_effort
             }
         }
 
-        # Invoke the model
-        response_obj = self.ai_model.invoke(prompt, config=config)
-        content = response_obj.content.strip()
+        # Use LangChain's structured output method
+        # This handles both tool calling and JSON mode automatically
+        model_with_structure = self.ai_model.with_structured_output(
+            response_type,
+            method=
+            "function_calling"  # or "json_mode" depending on your preference
+        )
 
-        # Try to find JSON in the response
-        if '{' in content and '}' in content:
-          json_start = content.find('{')
-          json_end = content.rfind('}') + 1
-          json_str = content[json_start:json_end]
-          parsed = json.loads(json_str)
-          return parsed
+        # Invoke the model with structured output
+        structured_response = await model_with_structure.ainvoke(
+            prompt, config=config)
+
+        # Convert Pydantic object to dictionary if needed
+        if hasattr(structured_response, 'dict'):
+          return structured_response.dict()
+        elif hasattr(structured_response, 'model_dump'):
+          return structured_response.model_dump()
+        elif isinstance(structured_response, dict):
+          return structured_response
         else:
-          logging.warning(f"No JSON structure found in: {content[:100]}...")
+          # Convert to dict using the response_type's field annotations
+          return {
+              field: getattr(structured_response, field, "")
+              for field in response_type.__annotations__.keys()
+          }
 
-      except json.JSONDecodeError as e:
-        logging.warning(f"JSON decode error on attempt {attempt+1}: {str(e)}")
       except Exception as e:
-        logging.error(f"Error during JSON extraction: {str(e)}")
+        logging.warning(
+            f"Structured output attempt {attempt+1} failed: {str(e)}")
 
-      # Modify prompt to be clearer about JSON requirements for the next attempt
-      prompt = f"Please respond with valid JSON only. Original prompt: {prompt}"
+      # If structured output fails, try with a more explicit prompt
+      if attempt < max_attempts - 1:
+        # Make the requirements more explicit for next attempt
+        field_descriptions = []
+        for field_name, field_type in response_type.__annotations__.items():
+          field_descriptions.append(f"'{field_name}': {field_type.__name__}")
 
-    # If we reach here, we've failed after max_attempts
-    logging.error(f"Failed to get valid JSON after {max_attempts} attempts")
+        prompt = f"""Please respond with a JSON object containing exactly these fields: {{{', '.join(field_descriptions)}}}.
+              
+              Original request: {prompt}
+              
+              Return only valid JSON, no additional text."""
 
-    # Return empty defaults instead of raising exception
-    # Try to infer default fields based on the response_type name
-    if hasattr(response_type, "__annotations__"):
-      # Create default values based on type annotations if available
-      return {field: "" for field in response_type.__annotations__}
+    # Try with JSON mode as fallback
+    try:
+      model_with_json = self.ai_model.with_structured_output(
+          response_type, method="json_mode")
+      structured_response = await model_with_json.ainvoke(prompt,
+                                                          config=config)
 
-    # Fallback defaults
-    return {"name": "", "text": ""}
+      if hasattr(structured_response, 'dict'):
+        return structured_response.dict()
+      elif hasattr(structured_response, 'model_dump'):
+        return structured_response.model_dump()
+      elif isinstance(structured_response, dict):
+        return structured_response
+
+    except Exception as json_error:
+      logging.warning(f"JSON mode fallback failed: {str(json_error)}")
+      pass
+
+    # If all attempts fail, return default values
+    logging.error(
+        f"Failed to get valid structured output after {max_attempts} attempts"
+    )
+    return {field: "" for field in response_type.__annotations__.keys()}
+
+  def _extract_messages(self, prompt: str) -> tuple:
+    """Extract system and user messages from a combined prompt."""
+    # Simple implementation - you may need to adjust based on your prompt format
+    lines = prompt.split('\n')
+    system_lines = []
+    user_lines = []
+
+    in_system = True
+    for line in lines:
+      if '<query>' in line.lower():
+        in_system = False
+
+      if in_system:
+        system_lines.append(line)
+      else:
+        user_lines.append(line)
+
+    system_message = '\n'.join(system_lines)
+    user_message = '\n'.join(user_lines)
+
+    # If we couldn't split properly, use a default system message
+    if not system_message:
+      system_message = "Extract the required information in JSON format."
+      user_message = prompt
+
+    return system_message, user_message

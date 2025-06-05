@@ -3,6 +3,7 @@ from langchain_xai import ChatXAI
 from langchain import hub
 from pydantic import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
+
 from api.agents.handlers.log_manager import LogManager
 from api.agents.handlers.pinecone_manager import PineconeManager
 from api.agents.handlers.topic_manager import TopicManager
@@ -12,6 +13,8 @@ from typing import Optional
 from datetime import datetime
 import json
 from channels.db import database_sync_to_async
+from langsmith import Client
+import asyncio
 
 
 class SessionManager:
@@ -25,6 +28,8 @@ class SessionManager:
     self.pinecone_manager = pinecone_manager
     self.topic_manager = topic_manager
     self.log_manager = log_manager
+    self.session_ended = False  # ADD THIS LINE
+    self.ending_soon_sent = False
 
     self.model_config_time = {
         "configurable": {
@@ -33,15 +38,22 @@ class SessionManager:
         }
     }
 
+    self.client = Client()
+
     self.conversation_helper = conversation_helper
     self.prompts = {
-        "first_intro": hub.pull("first_session_intro"),
-        "other_intro": hub.pull("other_session_intro"),
-        "end_session": hub.pull("end_of_session"),
-        "end_soon": hub.pull("ending_soon"),
+        "first_intro":
+        self.client.pull_prompt("first_session_intro"),
+        "other_intro":
+        self.client.pull_prompt("other_session_intro"),
+        "end_session":
+        self.client.pull_prompt("end_of_session"),
+        "end_soon":
+        self.client.pull_prompt("ending_soon"),
         "process_topics_and_character":
-        hub.pull("process_topics_and_character"),
-        "process_logs": hub.pull("process_logs:1edec672"),
+        self.client.pull_prompt("process_topics_and_character"),
+        "process_logs":
+        self.client.pull_prompt("process_logs:1edec672"),
     }
     self.state: Optional[ConversationState] = None
     self.summary: Optional[str] = ""
@@ -52,28 +64,117 @@ class SessionManager:
     """Update the current conversation state"""
     self.state = state
 
+  def format_hub_prompt(self, prompt_template, **variables):
+    """
+    Format a LangChain Hub prompt manually by extracting messages
+    and replacing variables directly in message content.
+
+    Args:
+        prompt_template: A ChatPromptTemplate from hub.pull()
+        **variables: Variables to format into the messages
+
+    Returns:
+        A list of formatted messages ready for the model
+    """
+    from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
+    # Initialize messages list
+    messages = []
+
+    # Extract messages from the template
+    for msg in prompt_template.messages:
+      # Get message type and content
+      msg_type = msg.__class__.__name__
+
+      # For prompt templates
+      if hasattr(msg, 'prompt') and hasattr(msg.prompt, 'template'):
+        template = msg.prompt.template
+
+        # Replace variables manually
+        content = template
+        for var_name, var_value in variables.items():
+          placeholder = '{' + var_name + '}'
+          if placeholder in content:
+            content = content.replace(placeholder, str(var_value))
+
+        # Create appropriate message type
+        if msg_type == 'SystemMessagePromptTemplate':
+          messages.append(SystemMessage(content=content))
+        elif msg_type == 'HumanMessagePromptTemplate':
+          messages.append(HumanMessage(content=content))
+        elif msg_type == 'AIMessagePromptTemplate':
+          messages.append(AIMessage(content=content))
+
+      # For plain messages
+      elif hasattr(msg, 'content'):
+        content = msg.content
+
+        # Replace variables manually
+        for var_name, var_value in variables.items():
+          placeholder = '{' + var_name + '}'
+          if placeholder in content:
+            content = content.replace(placeholder, str(var_value))
+
+        # Create a new message with the same type but updated content
+        if isinstance(msg, SystemMessage):
+          messages.append(SystemMessage(content=content))
+        elif isinstance(msg, HumanMessage):
+          messages.append(HumanMessage(content=content))
+        elif isinstance(msg, AIMessage):
+          messages.append(AIMessage(content=content))
+        else:
+          # Just keep the original message if type is unknown
+          messages.append(msg)
+
+    return messages
+
   async def handle_ending_soon(self) -> str:
-    print("calling function")
+    """Handle 5-minute warning only once with proper state checking"""
+    if self.ending_soon_sent:
+      return ""
 
-    prompt = self.prompts["end_soon"].format(username=self.state.username)
-    print("prompt", prompt)
+    self.ending_soon_sent = True
+    print("Generating ending soon message")
 
-    print("invoking ending soon!!!")  # Moved up before config check
-    
-    # give there that 5 minutes is left to prompt
-    response = self.ai_model.invoke(prompt, config=self.model_config_time)
-    if isinstance(response, dict) and 'content' in response:
-      response_text = response['content']
-    else:
-      response_text = ''
-    return response_text
+    # Check if state exists and has username
+    if not self.state:
+      print("Error: State is None in handle_ending_soon")
+      return "Your session will end in 5 minutes."
+
+    if not hasattr(self.state, 'username') or not self.state.username:
+      print("Error: State has no username in handle_ending_soon")
+      return "Your session will end in 5 minutes."
+
+    try:
+      prompt = self.prompts["end_soon"]
+      prompt = prompt.invoke({"username": self.state.username})
+
+      response = self.ai_model.invoke(prompt, config=self.model_config_time)
+
+      if hasattr(response, 'content'):
+        response_text = response.content
+      elif isinstance(response, dict) and 'content' in response:
+        response_text = response['content']
+      else:
+        response_text = str(response)
+
+      return response_text
+
+    except Exception as e:
+      print(f"Error generating ending soon message: {e}")
+      return "Your session will end in 5 minutes."
 
   async def handle_start(self) -> str:
     if self.chat_session.first:
-      prompt = self.prompts["first_intro"].format(username=self.state.username)
+      prompt = self.prompts["first_intro"]
+      prompt = prompt.invoke({"username": self.state.username})
     else:
-      prompt = self.prompts["other_intro"].format(
-          username=self.state.username, summary=self.state.previous_summary)
+      prompt = self.prompts["other_intro"]
+      prompt = prompt.invoke({
+          "username": self.state.username,
+          "summary": self.state.previous_summary
+      })
+
     response = self.ai_model.invoke(prompt, config=self.model_config_time)
     response_content = response.content
 
@@ -97,46 +198,61 @@ class SessionManager:
 
   async def handle_state_end(self):
     """
-    Handle the end of a session, processing topics and logs
-    using the new association models
+    Handle the end of a session, processing topics and logs using association models.
+    This function:
+    1. Processes the conversation topics
+    2. Updates topics in the database and vector store
+    3. Creates and stores conversation logs for all discussed topics
+    4. Updates the session summary and user character
     """
-    # Process topics and character from the conversation
-    await self.state.prepare_prompt_end()
+    # Prepare prompt data from the session
+    print("Starting handle_state_end")
+    self.state = await self.state.prepare_prompt_end()
+    print("Completed prepare_prompt_end")
+    discussed_topics = await self.topic_manager.get_session_topics(
+        self.state.chat_session_id)
+    print(f"Discussed Topics: {discussed_topics}")
 
-    topics = self.state.prompt_topics
-    summary = ""
-    discussed_topics = await self.topic_manager.get_session_topics()
+    self.chat_session.time_left = 0
 
+    # Early return if no topics were discussed
     if not discussed_topics:
-      print("not topics")
-      summary = "You didn't discuss any topics here"
-      self.summary = summary
-      self.chat_session.summary = summary
-      self.chat_session.time_left = 0
-      print("druhy", self.chat_session.time_left)
+      self.summary = "You didn't discuss any topics here"
+      self.chat_session.summary = self.summary
+
       await database_sync_to_async(self.chat_session.save)()
+      print("No topics discussed; Exiting handle_state_end")
       return
 
+    # Get the current state
+    topics = self.state.prompt_topics
     chat_history = self.state.conversation_context
+    character = self.state.prompt_character
 
-    prompt = self.prompts["process_topics_and_character"].format(
-        topics=topics,
-        character=self.state.character,
-        chat_history=chat_history)
+    # Step 1: Process topics and character updates
+    print("Processing topics and character updates")
+    topic_char_prompt = self.prompts["process_topics_and_character"].invoke({
+        "topic":
+        topics,
+        "character":
+        character,
+        "chat_history":
+        chat_history,
+    })
 
-    response = await self.conversation_helper.run_until_json(
-        prompt, TopicAndCharacterJSON)
-    print("response", response)
+    topic_char_response = await self.conversation_helper.run_until_json(
+        topic_char_prompt, TopicAndCharacterJSON)
+    print(f"Received topic and character response: {topic_char_response}")
 
-    # Update character
-    self.chat_session.character = response["character"]
-
-    # Process updated topics
-    new_topics = response['topics']
+    # Extract processed topics
+    new_topics = topic_char_response['topics']
     self.topics = new_topics
     self.prepare_new_prompt_topics()
+    print("Prepared new prompt topics")
 
-    # Update topics in database and pinecone
+    # Step 2: Update database and vector store
+    print("Updating database and vector store")
+
     @database_sync_to_async
     def update_topics_in_db():
       for topic_data in new_topics:
@@ -144,81 +260,144 @@ class SessionManager:
         topic_name = topic_data["topic_name"]
         topic_text = topic_data["text"]
 
-        # Update topic in database
         topic_obj = Topic.objects.get(id=topic_id)
         topic_obj.name = topic_name
         topic_obj.description = topic_text
         topic_obj.date_updated = datetime.now().date()
         topic_obj.save()
 
-    await update_topics_in_db()
+    async def update_topic_vectors():
+      update_tasks = []
+      for topic_data in new_topics:
+        topic_for_pinecone = TopicState(
+            topic_id=topic_data["topic_id"],
+            topic_name=topic_data["topic_name"],
+            text=topic_data["text"],
+            confidence=0.0,
+        )
+        update_tasks.append(
+            self.pinecone_manager.update_topic_vector(topic_for_pinecone))
+      await asyncio.gather(*update_tasks)
+      print("Updated topic vectors")
 
-    # Update topic vectors in pinecone
-    for topic_data in new_topics:
-      topic_for_pinecone = TopicState(
-          topic_id=topic_data["topic_id"],
-          topic_name=topic_data["topic_name"],
-          text=topic_data["text"],
-          confidence=0.0,
-      )
-      await self.pinecone_manager.update_topic_vector(topic_for_pinecone)
-
-    # Process logs
-    prompt = self.prompts["process_logs"].format(topics=self.topics,
-                                                 chat_history=chat_history)
-
-    response = await self.conversation_helper.run_until_json(prompt, LogJSON)
-
-    # tady
-    # Extract log data
-    log_text = response["text"]
-    topic_id = response["topic_id"]
-    topic_name = response["topic_name"]
-
-    # Create log in database using the new association
-    @database_sync_to_async
-    def create_log_in_db():
-      # Create the log
-      new_log = Log.objects.create(user_id=self.state.user_id,
-                                   chat_session=self.chat_session,
-                                   topic_id=topic_id,
-                                   text=log_text)
-
-      return new_log
+    # Update user character
+    print("Updating user character")
 
     @database_sync_to_async
-    def delete_session_logs_and_topics():
-      SessionLog.objects.filter(session=self.chat_session).delete()
-      SessionTopic.objects.filter(session=self.chat_session).delete()
+    def update_character():
+      profile = Profile.objects.get(user_id=self.state.user_id)
+      profile.character = topic_char_response["character"]
+      self.chat_session.character = profile.character
+      profile.save()
 
-    await create_log_in_db()
-    await delete_session_logs_and_topics()
+    # Step 3: Process logs for each topic and build summary
+    async def process_logs_for_topics():
+      print("Processing logs for topics")
+      logs_prompt = self.prompts["process_logs"].invoke({
+          "topics":
+          self.topics,
+          "chat_history":
+          chat_history
+      })
 
-    # Update log in pinecone
-    log_for_pinecone = LogState(topic_id=topic_id,
-                                text=log_text,
-                                topic_name=topic_name,
-                                chat_session_id=self.chat_session.id)
-    await self.pinecone_manager.upsert_log(log_for_pinecone)
+      log_response = await self.conversation_helper.run_until_json(
+          logs_prompt, LogJSON)
+      print(f"Received log response: {log_response}")
 
-    # Prepare summary
-    summary = f"{topic_name}:\n{log_text}"
+      # Extract log data - this will be one log entry per session
+      log_text = log_response["text"]
+      topic_id = log_response["topic_id"]
+      topic_name = log_response["topic_name"]
 
-    # Update session
-    self.summary = summary
-    self.chat_session.summary = summary
-    self.chat_session.time_left = 0
+      # Create log in database
+      print("Creating log in database")
 
-    await database_sync_to_async(self.chat_session.save)()
+      @database_sync_to_async
+      def create_log_in_db():
+        return Log.objects.create(user_id=self.state.user_id,
+                                  chat_session=self.chat_session,
+                                  topic_id=topic_id,
+                                  text=log_text)
+
+      # Update log in pinecone
+      async def update_log_vector():
+        log_for_pinecone = LogState(topic_id=topic_id,
+                                    text=log_text,
+                                    topic_name=topic_name,
+                                    chat_session_id=self.chat_session.id)
+        await self.pinecone_manager.upsert_log(log_for_pinecone)
+        print("Updated log vector")
+
+      new_log = await create_log_in_db()
+      print("New log created in db")
+      await update_log_vector()
+
+      return {
+          "topic_id": topic_id,
+          "topic_name": topic_name,
+          "log_text": log_text
+      }
+
+    # Step 4: Update session with comprehensive summary
+    @database_sync_to_async
+    def save_chat_session(topic_logs):
+      print("Saving chat session")
+      # Build a comprehensive summary of all discussed topics
+      summary_parts = []
+      for log_entry in topic_logs:
+        topic_name = log_entry["topic_name"]
+        log_text = log_entry["log_text"]
+        summary_parts.append(f"{topic_name}: {log_text}")
+
+      summary = "\n\n".join(summary_parts)
+
+      self.summary = summary
+      self.chat_session.character = self.state.character
+      self.chat_session.summary = summary
+      self.chat_session.save()
+      print("Chat session saved")
+
+    # Run the tasks in parallel where possible
+    print("Running tasks in parallel")
+    await asyncio.gather(update_topics_in_db(), update_topic_vectors(),
+                         update_character())
+
+    # Process logs and create the summary
+    topic_log = await process_logs_for_topics()
+    print("Processed logs for all topics")
+    await save_chat_session([topic_log])
+    print("Completed handle_state_end")
 
   async def handle_end(self) -> str:
-    prompt = self.prompts["end_session"].format(username=self.state.username)
-    print("promptttdd", prompt)
-    response = self.ai_model.invoke(prompt, config=self.model_config_time)
-    if isinstance(response, dict) and 'content' in response:
-      response_text = response['content']
-    else:
-      response_text = ''
+    """Handle session end only once"""
+    if self.session_ended:
+      return ""
 
-    response_text += f'\n\n{self.summary}'
-    return response_text
+    self.session_ended = True
+    print("Generating end session message")
+
+    try:
+      prompt = self.prompts["end_session"]
+      prompt = prompt.invoke({"username": self.state.username})
+
+      response = self.ai_model.invoke(prompt, config=self.model_config_time)
+
+      if isinstance(response, dict) and 'content' in response:
+        response_text = response['content']
+      else:
+        response_text = response.content if hasattr(response,
+                                                    'content') else ''
+
+      # Add hash for automatic end detection
+      hash_before = "2458792345u01298347901283491234"
+      response_text = hash_before + response_text
+
+      # Add summary if available
+      if hasattr(self, 'summary') and self.summary:
+        response_text += f'\n\n{self.summary}'
+
+      return response_text
+
+    except Exception as e:
+      print(f"Error generating end message: {e}")
+      return "Session ended."

@@ -35,9 +35,9 @@
     "app/models.py": [
       {
         "id": "7876d13f-117c-4f32-bb40-47d24a721eb4",
-        "line": 283,
-        "version": 6348,
-        "index": 9416
+        "line": 288,
+        "version": 6561,
+        "index": 9762
       }
     ],
     "app/views.py": [

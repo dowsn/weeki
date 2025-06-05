@@ -16,81 +16,77 @@ class TopicManager:
     self.pinecone_manager = pinecone_manager
     self.embedding_model = Settings.embed_model
 
-  async def store_topic(self, topic: TopicState, state: ConversationState) -> TopicState:
+  async def store_topic(self, topic: TopicState,
+                        state: ConversationState) -> TopicState:
+
     @database_sync_to_async
     def create_topic_in_db():
-        topic_in_db = Topic.objects.create(
-            name=topic.topic_name,
-            description=topic.text,
-            user_id=state.user_id
-        )
+      topic_in_db = Topic.objects.create(name=topic.topic_name,
+                                         description=topic.text,
+                                         user_id=state.user_id)
 
-        SessionTopic.objects.create(
-            session_id=state.chat_session.id,
-            topic_id=topic_in_db.pk,  # Note: use topic_in_db.pk here
-            status=1,
-            confidence=0.85
-        )
+      SessionTopic.objects.create(
+          session_id=state.chat_session_id,
+          topic_id=topic_in_db.pk,  # Note: use topic_in_db.pk here
+          status=1,
+          confidence=0.85)
 
-        return topic_in_db
+      return topic_in_db
 
     topic_in_db = await create_topic_in_db()
 
-    new_topic_state = TopicState(
-        topic_id=topic_in_db.pk,
-        topic_name=topic_in_db.name,
-        text=topic.text,
-        confidence=0.85,
-        embedding=None
-    )
+    topic.topic_id = topic_in_db.pk
+
+    print("new_topic_state", topic.topic_name)
+    print("new_topic_id", topic.topic_id)
 
     # Use pinecone_manager to create and store the embedding
-    embedding = await self.pinecone_manager.upsert_topic(new_topic_state)
-    new_topic_state.embedding = embedding
+    embedding = await self.pinecone_manager.upsert_topic(topic)
+    topic.embedding = embedding
 
-    return new_topic_state
+    return topic
 
   # where is this called
   async def check_topics(self, state: ConversationState) -> ConversationState:
     state.current_topics = []
     matched_topics = []
 
-    if len(matched_topics) == 0 and state.embedding:
-        new_topics = await self.pinecone_manager.retrieve_topics(
-            embedding=state.embedding)
-        matched_topics = new_topics
+    if state.embedding:
+      print("searching for topics")
+      print("embedding length:", len(state.embedding))
 
-        @database_sync_to_async
-        def process_topics():
-            for topic in new_topics:
-                try:
-                    existing_topic = SessionTopic.objects.get(
-                        session_id=state.session_id,
-                        topic_id=topic.topic_id
-                    )
-                except SessionTopic.DoesNotExist:
-                    SessionTopic.objects.create(
-                        session_id=state.session_id,
-                        topic_id=topic.topic_id,
-                        status=1,
-                        confidence=topic.confidence
-                    )
+      # Debug what's stored first
+      # await self.pinecone_manager.debug_what_is_stored()
 
-        await process_topics()
+      # Try retrieval with very low threshold
+
+      if state.embedding:
+        print("state_embedding is something", state.embedding)
+
+      new_topics = await self.pinecone_manager.retrieve_topics(
+          embedding=state.embedding,
+          base_threshold=0.3,  # Must be semantically relevant
+          final_threshold=0.5,  # Must pass final quality check
+          max_results=3)  # Maximum 3 topics
+      matched_topics = new_topics
 
     state.current_topics = matched_topics
+    print(f"Matched topics: {len(matched_topics)}")
+    for topic in matched_topics:
+      print(f"  - {topic.topic_name} (confidence: {topic.confidence:.3f})")
 
     if len(matched_topics) == 0:
-        state = await self.create_new_topic(state)
+      print("No matching topics found - creating new topic")
+      state = await self.create_new_topic(state)
 
     state.embedding = None
+
     return state
 
   async def create_new_topic(self,
                              state: ConversationState) -> ConversationState:
     state.potential_topic = "NA"
     return state
-
 
   async def get_session_topics(self,
                                session_id: int,

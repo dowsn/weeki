@@ -119,9 +119,13 @@ class Chat_Session(models.Model):
   time_left = models.IntegerField(default=60)
   date = models.DateField(default=date.today)
   reminder_sent = models.BooleanField(default=False)
+  topic_ids = EncryptedTextField(blank=True, null=True, max_length=1000)
   first = models.BooleanField(default=False)
+  asked_questions = EncryptedTextField(blank=True, null=True, max_length=5000)
+  topic_names = EncryptedTextField(blank=True, null=True, max_length=1000)
   title = EncryptedCharField(max_length=100, blank=True, null=True)
-  potential_topic = EncryptedTextField(blank=True, null=True, max_length=2000)
+  potential_topic = EncryptedTextField(blank=True, null=True, max_length=5000)
+  character = EncryptedTextField(blank=True, null=True, max_length=2000)
   summary = EncryptedTextField(blank=True, null=True, max_length=500)
   saved_query = EncryptedTextField(blank=True, null=True, max_length=2000)
   topics = models.ManyToManyField(Topic,
@@ -174,6 +178,7 @@ class Log(models.Model):
 class Message(models.Model):
   id = models.AutoField(primary_key=True)
   chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+  show_in = models.BooleanField(default=True)
   content = EncryptedTextField(max_length=500, blank=True)
   date_created = models.DateTimeField(default=timezone.now)
   role = models.CharField(max_length=10,

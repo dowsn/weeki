@@ -29,10 +29,11 @@ class ConversationAgent:
   async def create(cls, user: User, chat_session: Chat_Session, ws_consumer):
     """Factory method to create and initialize a ConversationAgent instance."""
     instance = cls(user, chat_session, ws_consumer)
-    instance.ai_model = init_chat_model(model="xai:grok-3-mini-fast-beta", configurable_fields="any", config_prefix="foo",
+    instance.ai_model = init_chat_model(model="xai:grok-3-mini-fast",
+                                        configurable_fields="any",
+                                        config_prefix="foo",
                                         temperature=0.7,
                                         reasoning_effort="high")
-    
 
     instance.moment_manager = MomentManager(
         user,
@@ -41,17 +42,21 @@ class ConversationAgent:
         stream_message=instance.stream_message)
     return instance
 
+  def is_session_ended(self):
+    """Check if session has ended due to time"""
+    return self.moment_manager.is_session_ended()
+
   async def run_agent(self, query: str,
                       agent_context: dict) -> ConversationState:
     """Run the agent with the given query and yield response tokens."""
     response = await self.moment_manager.run_agent(query, agent_context)
 
     # save
-    await self._save_message("assistant", response.response)
+    await self.save_message("assistant", response.response)
 
     return response
 
-  async def start_session(self) -> AsyncGenerator[str, None]:
+  async def start_session(self):
     """Start a new session and yield the initial message tokens."""
     initial_message = await self.moment_manager.start_session()
 
@@ -59,13 +64,31 @@ class ConversationAgent:
     if initial_message:
 
       # Split the message text into tokens
-      await self._save_message("assistant", initial_message)
-      for token in initial_message.split():
-        yield token + " "  # YIELD the tokens, don't send directly
+      await self.save_message("assistant", initial_message, show_in=False)
+      return initial_message
+
+  async def stream_message(self, message: str) -> None:
+    """Handle time-based messages by sending tokens to websocket."""
+
+    # Check for end signal hash
+    END_HASH = "2458792345u01298347901283491234"
+
+    if END_HASH in message:
+      print("End signal detected in stream_message")
+      # Remove the hash from the message
+      clean_message = message.replace(END_HASH, "").strip()
+      # Trigger close with the clean message
+      await self.ws_consumer.handle_close(complete=True, message=clean_message)
+      return
+
+    # Regular message handling
+    await self.save_message("assistant", message, show_in=False)
+    await self.ws_consumer.stream_tokens(message,
+                                         message_type="automatic_message")
 
   async def _handle_ending_soon(self, message: str) -> None:
     """Handle the ending soon event by sending tokens to websocket."""
-    await self._save_message("assistant", message)
+    await self.save_message("assistant", message, show_in=False)
     for token in message.split():
       token_with_space = token + " "
       await self.ws_consumer.send(text_data=json.dumps({
@@ -91,14 +114,15 @@ class ConversationAgent:
 
   async def end_session(self) -> str:
     """End the session and return any final message (without streaming it)."""
-    # Get the end message from moment_manager
     response = await self.moment_manager.end_session()
 
-    # Save the message to the database
+    # Save the message to the database (without hash)
     if response:
-      await self._save_message("assistant", response)
+      clean_response = response.replace("2458792345u01298347901283491234",
+                                        "").strip()
+      await self.save_message("assistant", clean_response, show_in=False)
 
-    return response
+    return clean_response if response else ""
 
   async def save_session_state(self, complete: bool):
     """
@@ -227,27 +251,38 @@ class ConversationAgent:
     # await process_cached_logs()
     # await process_current_logs()
 
-  async def stream_message(self, message: str, is_final_timeout: bool = False) -> None:
-    """Handle the ending soon event by sending tokens to websocket."""
-    await self._save_message("assistant", message)
+  # async def stream_message(self,
+  #                          message: str,
+  #                          is_final_timeout: bool = False) -> None:
+  #   """Handle the ending soon event by sending tokens to websocket."""
+  #   await self._save_message("assistant", message)
 
-    # Use different method if this is a final timeout message
-    if is_final_timeout:
-      await self.ws_consumer.stream_final_timeout_message(message)
-    else:
-      await self.ws_consumer.stream_tokens(message)
+  #   # Use different method if this is a final timeout message
+  #   if is_final_timeout:
+  #     await self.ws_consumer.stream_final_timeout_message(message)
+  #   else:
+  #     await self.ws_consumer.stream_tokens(message)
 
   async def get_end_message(self) -> str:
     """Get the final end session message without any side effects"""
     response = await self.moment_manager.end_session()
 
-    await self._save_message("assistant", response)
+    await self.save_message("assistant", response, show_in=False)
 
     return response
 
-  async def _save_message(self, role: str, content: str) -> None:
+  async def save_message(self,
+                         role: str,
+                         content: str,
+                         show_in: Optional[bool] = None) -> None:
+    current_state = self.moment_manager.get_current_state()
+
+    # Use provided show_in if specified, otherwise use the current logic
+    display_flag = show_in if show_in is not None else (
+        current_state.saved_query == "")
 
     await database_sync_to_async(Message.objects.create
                                  )(chat_session=self.chat_session,
                                    content=content,
-                                   role=role)
+                                   role=role,
+                                   show_in=display_flag)

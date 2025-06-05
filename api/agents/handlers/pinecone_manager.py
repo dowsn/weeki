@@ -78,147 +78,155 @@ class PineconeManager:
     return await asyncio.get_event_loop().run_in_executor(
         self.executor, lambda: self.embedding_model.get_text_embedding(text))
 
-  def calculate_time_decay(self, date_updated: datetime) -> float:
-    """Calculate decay factor based on time elapsed"""
-    now = datetime.now()
-    days_elapsed = (now - date_updated).days
-
-    # Exponential decay with half-life of 30 days
-    half_life = 30
-    decay_factor = 0.5**(days_elapsed / half_life)
-    return max(0.1, decay_factor)  # Minimum decay of 0.1
-
-  def adjust_score_with_decay(self, base_score: float,
-                              last_updated: datetime) -> float:
-    """Combine similarity score with time decay"""
-    time_decay = self.calculate_time_decay(last_updated)
-    # Weight: 70% similarity, 30% time freshness
-    return (0.7 * base_score) + (0.3 * time_decay)
-
   class TimeDecayRetriever(BaseRetriever):
-    """Custom retriever that applies time-decay to relevance scores"""
+    """Custom retriever that applies time-boost to relevance scores"""
 
-    def __init__(self, vector_store, user_id, calculate_time_decay_fn,
+    def __init__(self, vector_store, user_id, calculate_time_boost_fn,
                  adjust_score_fn, parent_manager):
       self.vector_store = vector_store
       self.user_id = user_id
       self.embedding_model = Settings.embed_model
-      self.calculate_time_decay = calculate_time_decay_fn
+      self.calculate_time_boost = calculate_time_boost_fn
       self.adjust_score = adjust_score_fn
       self.parent_manager = parent_manager
 
-    def _retrieve(self,
-                  query_embedding,
-                  min_score=0.5,
-                  top_k=5,
-                  time_filter=True):
-      # Import the necessary classes
+    def _retrieve(
+        self,
+        query_embedding,
+        base_similarity_threshold=0.4,  # Stage 1: semantic relevance
+        final_score_threshold=0.5,  # Stage 3: final quality threshold
+        top_k=10,  # Get more candidates initially
+        max_results=3):  # Final result limit
 
-      # Build filters
+  
+      # Build filters - only user_id for now
       filter_list = [
           MetadataFilter(key="user_id",
                          operator=FilterOperator.EQ,
                          value=str(self.user_id))
       ]
 
-      # Add time filter if requested
-      if time_filter:
-        now = datetime.now()
-        three_months_ago = now - timedelta(days=90)
-
-        # Convert to Unix timestamps (seconds since epoch)
-        now_timestamp = now.timestamp()
-        three_months_ago_timestamp = three_months_ago.timestamp()
-
-        filter_list.append(
-            MetadataFilter(key="date_updated",  # Same field name as in your data
-                           operator=FilterOperator.GTE,
-                           value=three_months_ago_timestamp))
-        filter_list.append(
-            MetadataFilter(key="date_updated",
-                           operator=FilterOperator.LTE,
-                           value=now_timestamp))
-
       # Create metadata filters
       filters = MetadataFilters(filters=filter_list)
 
-      # Create query
+      # Create query - get more candidates initially
       vector_store_query = VectorStoreQuery(query_embedding=query_embedding,
                                             similarity_top_k=top_k,
                                             filters=filters)
 
       # Execute query
       query_result = self.vector_store.query(vector_store_query)
+      print(f"Found {len(query_result.nodes)} raw results")
 
-      # Process results
-      adjusted_results = []
+      # Stage 1: Filter by base similarity (semantic relevance)
+      semantically_relevant = []
       for node_with_score in query_result.nodes:
+        if node_with_score.score >= base_similarity_threshold:
+          semantically_relevant.append(node_with_score)
+          print(f"Passed semantic filter: score={node_with_score.score:.3f}")
+        else:
+          print(
+              f"Filtered out semantically: score={node_with_score.score:.3f}")
+
+      print(f"After semantic filtering: {len(semantically_relevant)} results")
+
+      # Stage 2: Apply time boost to semantically relevant topics
+      time_boosted_results = []
+      for node_with_score in semantically_relevant:
         try:
           node = node_with_score.node
-          score = node_with_score.score
+          base_score = node_with_score.score
           metadata = node.metadata
-          date_str = metadata.get("date")
 
-          if date_str:
-            date = datetime.fromisoformat(date_str)
-            adjusted_score = self.adjust_score(score, date)
+          # Handle timestamp format (both numeric and ISO string)
+          date_updated_value = metadata.get("date_updated")
 
-            if adjusted_score >= min_score:
-              # Create a new NodeWithScore with adjusted score
-              adjusted_node_with_score = NodeWithScore(node=node,
-                                                       score=adjusted_score)
-              adjusted_results.append(adjusted_node_with_score)
+          if date_updated_value:
+            try:
+              if isinstance(date_updated_value, (int, float)):
+                date = datetime.fromtimestamp(date_updated_value)
+              else:
+                date = datetime.fromisoformat(str(date_updated_value))
+            except (ValueError, TypeError):
+              date = datetime.now()
+              logger.warning(f"Could not parse date: {date_updated_value}")
+          else:
+            date = datetime.now()
+
+          # Apply time boost
+          boosted_score = self.adjust_score(base_score, date)
+
+          # Create new NodeWithScore with boosted score
+          boosted_node_with_score = NodeWithScore(node=node,
+                                                  score=boosted_score)
+          time_boosted_results.append(boosted_node_with_score)
+
         except Exception as e:
           logger.warning(f"Error processing result: {str(e)}")
           continue
 
-      return adjusted_results
+      # Sort by boosted score (highest first)
+      time_boosted_results.sort(key=lambda x: x.score, reverse=True)
+
+      # Stage 3: Apply final threshold and limit results
+      final_results = []
+      for node_with_score in time_boosted_results:
+        if node_with_score.score >= final_score_threshold and len(
+            final_results) < max_results:
+          final_results.append(node_with_score)
+          print(f"Final result: score={node_with_score.score:.3f}")
+        elif node_with_score.score < final_score_threshold:
+          print(
+              f"Filtered out by final threshold: score={node_with_score.score:.3f}"
+          )
+
+      print(f"Final results: {len(final_results)} topics")
+      return final_results
 
     async def retrieve(self, query, **kwargs):
+      """Handle both string queries and embeddings"""
       # Get embedding for query
       if isinstance(query, str):
         query_embedding = await self.parent_manager.get_text_embedding(query)
       else:
-        # Assume it's already an embedding
         query_embedding = query
 
-      min_score = kwargs.get("min_score", 0.5)
-      top_k = kwargs.get("top_k", 5)
-      time_filter = kwargs.get("time_filter", True)
+      # Map old parameters to new ones for backward compatibility
+      base_threshold = kwargs.get("base_threshold",
+                                  kwargs.get("min_score", 0.4))
+      final_threshold = kwargs.get("final_threshold", 0.5)
+      max_results = kwargs.get("max_results", kwargs.get("top_k", 3))
 
       return self._retrieve(query_embedding=query_embedding,
-                            min_score=min_score,
-                            top_k=top_k,
-                            time_filter=time_filter)
+                            base_similarity_threshold=base_threshold,
+                            final_score_threshold=final_threshold,
+                            max_results=max_results)
 
-  async def retrieve_topics(self,
-                            embedding: List[float],
-                            min_score: float = 0.5,
-                            top_k: int = 5) -> List[TopicState]:
-    """
-    Retrieve topics similar to the embedding with time-decay applied to scores.
+  async def retrieve_topics(
+      self,
+      embedding: List[float],
+      base_threshold: float = 0.4,  # Semantic relevance threshold
+      final_threshold: float = 0.5,  # Final quality threshold
+      max_results: int = 3) -> List[TopicState]:
 
-    Args:
-        embedding: Query embedding vector
-        min_score: Minimum similarity score (after decay)
-        top_k: Maximum number of results
 
-    Returns:
-        List[TopicState]: List of retrieved topics
-    """
+
     try:
-      # Create an instance of our custom retriever
+      # Create retriever with time boost functions
       retriever = self.TimeDecayRetriever(
           vector_store=self.topic_store,
           user_id=self.user_id,
-          calculate_time_decay_fn=self.calculate_time_decay,
-          adjust_score_fn=self.adjust_score_with_decay,
+          calculate_time_boost_fn=self.calculate_time_boost,
+          adjust_score_fn=self.adjust_score_with_time_boost,
           parent_manager=self)
 
       # Use executor to run retrieval in a thread
       results = await asyncio.get_event_loop().run_in_executor(
-          self.executor, lambda: retriever._retrieve(
-              query_embedding=embedding, min_score=min_score, top_k=top_k))
+          self.executor,
+          lambda: retriever._retrieve(query_embedding=embedding,
+                                      base_similarity_threshold=base_threshold,
+                                      final_score_threshold=final_threshold,
+                                      max_results=max_results))
 
       # Convert results to TopicState objects
       topics = []
@@ -227,7 +235,6 @@ class PineconeManager:
           node = node_with_score.node
           metadata = node.metadata
 
-          # Extract required fields with explicit type conversion
           topic_id = metadata.get('topic_id')
           if topic_id is None:
             continue
@@ -235,81 +242,73 @@ class PineconeManager:
           try:
             topic_id = int(topic_id)
             topic = Topic.objects.get(id=topic_id)
-          except (ValueError, TypeError):
-            logger.warning(f"Invalid topic_id format: {topic_id}")
+          except (ValueError, TypeError, Topic.DoesNotExist) as e:
+            logger.warning(f"Invalid topic_id or topic not found: {topic_id}")
             continue
 
-          date_updated_str = metadata.get('date_updated')
-
-          if not topic:
-            logger.warning("Missing topic")
-            continue
-
-          # Parse date
-          try:
-            date_updated = datetime.fromisoformat(date_updated_str)
-          except (ValueError, TypeError):
-            logger.warning(f"Invalid date format: {date_updated_str}")
-            continue
-
-          # Calculate confidence from score (already adjusted with time decay)
-          confidence = node_with_score.score
-
-          # Get embedding
-          node_embedding = node.embedding if hasattr(node,
-                                                     'embedding') else None
-          embedding = node_embedding if node_embedding is not None else []
+          # Parse date for TopicState
+          date_updated_value = metadata.get("date_updated")
+          if date_updated_value:
+            try:
+              if isinstance(date_updated_value, (int, float)):
+                date_updated = datetime.fromtimestamp(date_updated_value)
+              else:
+                date_updated = datetime.fromisoformat(str(date_updated_value))
+            except (ValueError, TypeError):
+              date_updated = datetime.now()
+          else:
+            date_updated = datetime.now()
 
           # Create TopicState
-          topic = TopicState(topic_id=topic_id,
-                             topic_name=topic.name,
-                             text=topic.description,
-                             confidence=confidence,
-                             embedding=embedding,
-                             date_updated=date_updated)
+          topic_state = TopicState(
+              topic_id=topic_id,
+              topic_name=topic.name,
+              text=topic.description,
+              confidence=node_with_score.score,  # This is the boosted score
+              embedding=[],
+              date_updated=date_updated)
 
-          topics.append(topic)
+          topics.append(topic_state)
+          print(
+              f"Added topic: {topic.name} (score: {node_with_score.score:.3f})"
+          )
 
         except Exception as e:
           logger.warning(f"Error processing topic: {str(e)}")
           continue
 
+      print(f"Returning {len(topics)} topics")
       return topics
 
     except Exception as e:
       logger.error(f"Error retrieving topics: {str(e)}")
       return []
 
+
   async def retrieve_logs(self,
                           embedding: List[float],
-                          min_score: float = 0.5,
-                          top_k: int = 5) -> List[LogState]:
+                          base_threshold: float = 0.4,
+                          final_threshold: float = 0.5,
+                          max_results: int = 5) -> List[LogState]:
     """
-    Retrieve logs similar to the query with time-decay applied to scores.
-  
-    Args:
-    query: Query string or embedding
-    min_score: Minimum similarity score (after decay)
-    top_k: Maximum number of results
-  
-    Returns:
-    List[LogState]: List of retrieved logs
+    Retrieve logs similar to the query with time-boost applied to scores.
     """
     try:
-      # Create an instance of our custom retriever
+      # Create retriever with time BOOST functions (not decay)
       retriever = self.TimeDecayRetriever(
           vector_store=self.log_store,
           user_id=self.user_id,
-          calculate_time_decay_fn=self.calculate_time_decay,
-          adjust_score_fn=self.adjust_score_with_decay,
+          calculate_time_boost_fn=self.calculate_time_boost,
+          adjust_score_fn=self.adjust_score_with_time_boost,
           parent_manager=self)
 
-      # Get embedding for query if it's a string
-
-      # Use executor to run retrieval in a thread
+      # Use the new 3-stage retrieval system
       results = await asyncio.get_event_loop().run_in_executor(
-          self.executor, lambda: retriever.retrieve(
-              embedding, min_score=min_score, top_k=top_k))
+          self.executor,
+          lambda: retriever._retrieve(query_embedding=embedding,
+                                      base_similarity_threshold=base_threshold,
+                                      final_score_threshold=final_threshold,
+                                      max_results=max_results))
 
       # Convert results to LogState objects
       logs = []
@@ -319,41 +318,54 @@ class PineconeManager:
           metadata = node.metadata
 
           topic_id = metadata.get('topic_id')
+          chat_session_id = metadata.get('chat_session_id')
 
-          @database_sync_to_async
-          def get_topic_and_log():
+          from asgiref.sync import sync_to_async
+
+          @sync_to_async
+          def get_topic_and_logs():
+            try:
               topic = Topic.objects.get(id=topic_id)
-              if not topic:
-                  return None, None
+              # Get logs by chat_session_id, not by log id
+              logs = Log.objects.filter(chat_session_id=chat_session_id)
+              return topic, logs
+            except (Topic.DoesNotExist, AttributeError):
+              return None, None
 
-              log = Log.objects.get(id=metadata.get('log_id'))
-              return topic, log
+          topic, session_logs = await get_topic_and_logs()
 
-          topic, log = await get_topic_and_log()
-
-          if not topic or not log:
-              continue
-
-          date_str = metadata.get('date')
-
-          try:
-            date = datetime.fromisoformat(date_str)
-          except (ValueError, TypeError):
-            logger.warning(f"Invalid date format: {date_str}")
+          if not topic or not session_logs:
             continue
 
-          # Create LogState
-          log = LogState(topic_id=topic_id,
-                         topic_name=topic.name,
-                         text=log.text,
-                         date=date)
+          # Parse date
+          date_updated_value = metadata.get('date_updated')
+          if date_updated_value:
+            try:
+              if isinstance(date_updated_value, (int, float)):
+                date = datetime.fromtimestamp(date_updated_value)
+              else:
+                date = datetime.fromisoformat(str(date_updated_value))
+            except (ValueError, TypeError):
+              date = datetime.now()
+          else:
+            date = datetime.now()
 
-          logs.append(log)
+          # Create LogState for each log in the session (or just use the text from the node)
+          # Since the node text contains the prepared text, we'll use that
+          log_state = LogState(
+              topic_id=topic_id,
+              topic_name=topic.name,
+              text=node.text,  # Use the text from the vector store node
+              date=date,
+              chat_session_id=chat_session_id)
+
+          logs.append(log_state)
 
         except Exception as e:
           logger.warning(f"Error processing log: {str(e)}")
           continue
 
+      print(f"Returning {len(logs)} logs")
       return logs
 
     except Exception as e:
@@ -444,42 +456,55 @@ class PineconeManager:
       logger.error(f"Error retrieving log embedding: {str(e)}")
       return None
 
-  #
+  def calculate_time_boost(self,
+                           date_updated: datetime,
+                           max_boost=0.5) -> float:
+    """
+    Calculate time boost - newer items get higher boost
+    max_boost: maximum boost factor (0.5 = 50% score increase)
+    """
+    now = datetime.now()
+    days_elapsed = (now - date_updated).days
+
+    # Recent items (< 7 days) get full boost
+    if days_elapsed < 7:
+      return max_boost
+    # Items within 30 days get declining boost
+    elif days_elapsed < 30:
+      return max_boost * (1 - (days_elapsed - 7) / 23)  # Linear decline
+    # Items within 90 days get small boost
+    elif days_elapsed < 90:
+      return max_boost * 0.1  # Small boost
+    # Older items get no boost
+    else:
+      return 0.0
+
+  def adjust_score_with_time_boost(self, base_score: float,
+                                   last_updated: datetime) -> float:
+    """Apply time boost to base score"""
+    time_boost = self.calculate_time_boost(last_updated)
+    return base_score * (1 + time_boost)
+
 
   async def upsert_topic(self, topic: TopicState) -> List[float]:
-    """
-    Insert or update a topic in the vector store.
-
-    Args:
-        topic: The topic to upsert
-
-    Returns:
-        List[float]: The embedding of the inserted topic
-    """
     try:
       # Prepare text for embedding
       prepared_text = self.prepare_text_for_embedding(topic.topic_name + " " +
                                                       topic.text)
-
-      # Create document
-      doc = Document(text=prepared_text,
-                     metadata={
-                         "topic_id": topic.topic_id,
-                         "user_id": self.user_id,
-                         "date_updated": datetime.now().isoformat()
-                     })
+      print("embedding this text:", prepared_text)
 
       # Get embedding
       embedding = await self.get_text_embedding(prepared_text)
 
-      now = datetime.now()
+      # Use consistent metadata format
       metadata = {
-          "topic_id": topic.topic_id,
-          "user_id": self.user_id,
-          "date_updated": now.timestamp()  # Store as numeric timestamp instead of ISO string
+          "topic_id": str(topic.topic_id),  # Always string
+          "user_id": str(self.user_id),  # Always string  
+          "date_updated":
+          datetime.now().timestamp()  # Always numeric timestamp
       }
 
-      # Create node with the numeric timestamp
+      # Create node
       node = TextNode(text=prepared_text,
                       metadata=metadata,
                       embedding=embedding)
@@ -488,6 +513,7 @@ class PineconeManager:
       await asyncio.get_event_loop().run_in_executor(
           self.executor, lambda: self.topic_index.insert_nodes([node]))
 
+      print(f"Successfully upserted topic {topic.topic_id}")
       return embedding
 
     except Exception as e:
@@ -497,28 +523,21 @@ class PineconeManager:
   async def upsert_log(self, log: LogState) -> bool:
     """
     Insert a log entry into the vector store.
-
-    Args:
-        log: The log to insert
-
-    Returns:
-        bool: True if successful, False otherwise
     """
     try:
       # Prepare text for embedding
       prepared_text = self.prepare_text_for_embedding(log.topic_name + " " +
                                                       log.text)
-      now = datetime.now()
 
-      metadata={
-           "user_id": self.user_id,
-           "topic_id": log.topic_id,
-           "chat_session_id": log.chat_session_id,
-           "date": now.timestamp()
-       }
-      # Create document
-      doc = Document(text=prepared_text,
-                     metadata=metadata)
+      # Use consistent metadata format (all strings like topics)
+      metadata = {
+          "user_id": str(self.user_id),  # Consistent string format
+          "topic_id": str(log.topic_id),  # Consistent string format
+          "chat_session_id":
+          str(log.chat_session_id),  # Consistent string format
+          "date_updated":
+          datetime.now().timestamp()  # Consistent timestamp format
+      }
 
       # Get embedding
       embedding = await self.get_text_embedding(prepared_text)
@@ -532,6 +551,9 @@ class PineconeManager:
       await asyncio.get_event_loop().run_in_executor(
           self.executor, lambda: self.log_index.insert_nodes([node]))
 
+      print(
+          f"Successfully upserted log for chat_session_id {log.chat_session_id}"
+      )
       return True
 
     except Exception as e:
@@ -567,7 +589,7 @@ class PineconeManager:
                       metadata={
                           "topic_id": topic.topic_id,
                           "user_id": self.user_id,
-                          "date_updated": datetime.now().isoformat()
+                          "date_updated": datetime.now().timestamp()
                       },
                       embedding=embedding)
 
@@ -583,9 +605,9 @@ class PineconeManager:
 
   def prepare_text_for_embedding(self,
                                  text,
-                                 remove_stopwords=True,
+                                 remove_stopwords=False,
                                  use_stemming=False,
-                                 use_lemmatization=True):
+                                 use_lemmatization=False):
     """
       Prepares text for embedding by cleaning and normalizing it.
 
