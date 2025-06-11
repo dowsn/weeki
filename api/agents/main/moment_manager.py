@@ -288,9 +288,6 @@ class MomentManager:
       print("Session time expired - triggering automatic end")
       self.session_ended = True
       try:
-        # Stop monitoring first
-        self.time_manager.stop_monitoring()
-
         # Check state before proceeding
         if self.state:
           # Handle state processing
@@ -301,10 +298,15 @@ class MomentManager:
           message = await self.session_manager.handle_end()
           if message:
             await self.stream_message(message)
+            
+          # Stop monitoring AFTER everything is done
+          self.time_manager.stop_monitoring()
         else:
           print("Cannot process end - state is None")
+          self.time_manager.stop_monitoring()
       except Exception as e:
         print(f"Error in end handler: {e}")
+        self.time_manager.stop_monitoring()
 
   def is_session_ended(self):
     """Check if session ended due to time"""
