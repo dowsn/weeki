@@ -300,6 +300,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         f"handle_close called - complete: {complete}, has_message: {bool(message)}"
     )
 
+    # Send processing status to frontend immediately
+    if complete and self.is_connected:
+      await self.send(text_data=json.dumps({
+          'type': 'processing_end',
+          'message': 'Processing your session data...'
+      }))
+
     final_message = message
 
     try:
@@ -328,7 +335,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if final_message and self.is_connected:
           print("Streaming final message")
           await self.stream_tokens(final_message,
-                                   message_type="automatic_message")
+                                   message_type="automatic_message",
+                                   skip_new_message=True)  # Skip new_message since we already sent processing_end
 
       # Close the connection
       if self.is_connected and not getattr(self, 'close_code', None):
@@ -352,7 +360,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
   async def stream_tokens(self,
                           message: str,
                           topics: str = "",
-                          message_type: str = "message"):
+                          message_type: str = "message",
+                          skip_new_message: bool = False):
     """Helper method to stream tokens with proper format"""
 
     # ADD THIS CHECK - Check if connection is still active
@@ -362,7 +371,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     try:
 
-      if message_type == "automatic_message":
+      if message_type == "automatic_message" and not skip_new_message:
         # ADD TRY-CATCH WRAPPER
         # Send signal for new message
         await self.send(text_data=json.dumps({
