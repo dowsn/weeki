@@ -364,7 +364,8 @@ class SessionManager:
       summary = "\n\n".join(summary_parts)
 
       self.summary = summary
-      self.chat_session.character = self.state.character
+      # Use the updated character from the AI response, not the state
+      self.chat_session.character = topic_char_response["character"]
       self.chat_session.summary = summary
       self.chat_session.save()
       print("Chat session saved")
