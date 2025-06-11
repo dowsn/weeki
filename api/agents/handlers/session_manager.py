@@ -53,7 +53,7 @@ class SessionManager:
         "process_topics_and_character":
         self.client.pull_prompt("process_topics_and_character"),
         "process_logs":
-        self.client.pull_prompt("process_logs:1edec672"),
+        self.client.pull_prompt("process_logs"),
     }
     self.state: Optional[ConversationState] = None
     self.summary: Optional[str] = ""
@@ -185,10 +185,10 @@ class SessionManager:
 
   def prepare_new_prompt_topics(self):
     for topic in self.topics:
-        self.prompt_topics += f"Topic id:{topic['topic_id']}\n"     # ✅ Use dictionary key access
-        self.prompt_topics += f"name:{topic['topic_name']}\n"       # ✅ Use dictionary key access
-        self.prompt_topics += f"description:{topic['text']}\n"      # ✅ Use dictionary key access
-        self.prompt_topics += "\n"
+      self.prompt_topics += f"Topic id:{topic['topic_id']}\n"  # ✅ Use dictionary key access
+      self.prompt_topics += f"name:{topic['topic_name']}\n"  # ✅ Use dictionary key access
+      self.prompt_topics += f"description:{topic['text']}\n"  # ✅ Use dictionary key access
+      self.prompt_topics += "\n"
 
     #go through state and generate strings for prompt before update actually
 
@@ -294,49 +294,61 @@ class SessionManager:
     async def process_logs_for_topics():
       print("Processing logs for topics")
       logs_prompt = self.prompts["process_logs"].invoke({
-          "topics":
-          self.topics,
-          "chat_history":
-          chat_history
+          "topics": self.topics,
+          "chat_history": chat_history
       })
 
       log_response = await self.conversation_helper.run_until_json(
           logs_prompt, LogJSON)
       print(f"Received log response: {log_response}")
 
-      # Extract log data - this will be one log entry per session
-      log_text = log_response["text"]
-      topic_id = log_response["topic_id"]
-      topic_name = log_response["topic_name"]
+      # Extract log data - now we have multiple logs
+      logs_data = log_response["logs"]  # Get the array
 
-      # Create log in database
-      print("Creating log in database")
+      processed_logs = []
 
-      @database_sync_to_async
-      def create_log_in_db():
-        return Log.objects.create(user_id=self.state.user_id,
-                                  chat_session=self.chat_session,
-                                  topic_id=topic_id,
-                                  text=log_text)
+      # Loop through each log entry
+      for log_entry in logs_data:
+          log_text = log_entry["text"]
+          topic_id = log_entry["topic_id"]
+          topic_name = log_entry["topic_name"]
 
-      # Update log in pinecone
-      async def update_log_vector():
-        log_for_pinecone = LogState(topic_id=topic_id,
-                                    text=log_text,
-                                    topic_name=topic_name,
-                                    chat_session_id=self.chat_session.id)
-        await self.pinecone_manager.upsert_log(log_for_pinecone)
-        print("Updated log vector")
+          print(f"Processing log for topic {topic_id}: {topic_name}")
 
-      new_log = await create_log_in_db()
-      print("New log created in db")
-      await update_log_vector()
+          # Create log in database
+          @database_sync_to_async
+          def create_log_in_db():
+              return Log.objects.create(
+                  user_id=self.state.user_id,
+                  chat_session=self.chat_session,
+                  topic_id=topic_id,
+                  text=log_text
+              )
 
-      return {
-          "topic_id": topic_id,
-          "topic_name": topic_name,
-          "log_text": log_text
-      }
+          # Update log in pinecone
+          async def update_log_vector():
+              log_for_pinecone = LogState(
+                  topic_id=topic_id,
+                  text=log_text,
+                  topic_name=topic_name,
+                  chat_session_id=self.chat_session.id
+              )
+              await self.pinecone_manager.upsert_log(log_for_pinecone)
+              print(f"Updated log vector for topic {topic_id}")
+
+          # Execute database and vector operations for this log
+          new_log = await create_log_in_db()
+          print(f"New log created in db for topic {topic_id}")
+          await update_log_vector()
+
+          # Store the processed log info
+          processed_logs.append({
+              "topic_id": topic_id,
+              "topic_name": topic_name,
+              "log_text": log_text
+          })
+
+      return processed_logs  # Return all processed logs
 
     # Step 4: Update session with comprehensive summary
     @database_sync_to_async
@@ -363,9 +375,9 @@ class SessionManager:
                          update_character())
 
     # Process logs and create the summary
-    topic_log = await process_logs_for_topics()
+    topic_logs = await process_logs_for_topics()
     print("Processed logs for all topics")
-    await save_chat_session([topic_log])
+    await save_chat_session(topic_logs)
     print("Completed handle_state_end")
 
   async def handle_end(self) -> str:

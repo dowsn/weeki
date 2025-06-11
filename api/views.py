@@ -842,19 +842,18 @@ class ChatSessionView(APIView):
     if selected_chat_session_id:
       return Chat_Session.objects.filter(id=selected_chat_session_id)
     else:
-
       thirteen_months_ago = timezone.now() - timedelta(days=390)
-      thirteen_months_ago_timestamp = time.mktime(
-          thirteen_months_ago.timetuple())
+      # Remove the timestamp conversion - use the date directly
+      thirteen_months_ago_date = thirteen_months_ago.date()
 
       return Chat_Session.objects.filter(
           user=user, time_left=0,
-          date__gte=thirteen_months_ago_timestamp).order_by('-date')
+          date__gte=thirteen_months_ago_date).order_by('-date')
 
   def get_surrounding_chats(self, selected_chat):
     """Get the chat sessions before and after the selected chat"""
     if not selected_chat:
-      
+
       return None, None
 
     before_chat = Chat_Session.objects.filter(

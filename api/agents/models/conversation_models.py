@@ -32,9 +32,16 @@ class TopicAndCharacterJSON(BaseModel):
   character: str = Field(description="Character description")
 
 
-class LogJSON(BaseModel):
+class LogEntryJSON(BaseModel):
   topic_id: int = Field(description="Topic ID")
   topic_name: str = Field(description="Topic name")
+  text: str = Field(
+      description=
+      "Log text, summary of conversation that is related to the topic")
+
+
+class LogJSON(BaseModel):
+  logs: List[LogEntryJSON]
 
 
 class TopicState(BaseModel):
@@ -115,7 +122,9 @@ class ConversationState(BaseModel):
     # Wrap the QuerySet operation with database_sync_to_async
     @database_sync_to_async
     def get_session_topics():
-      return list(SessionTopic.objects.select_related('topic').filter(session=self.chat_session_id))
+      return list(
+          SessionTopic.objects.select_related('topic').filter(
+              session=self.chat_session_id))
 
     discussed_topics = await get_session_topics()
 
