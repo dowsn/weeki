@@ -39,7 +39,8 @@ class ConversationAgent:
         user,
         chat_session,
         instance.ai_model,
-        stream_message=instance.stream_message)
+        stream_message=instance.stream_message,
+        ws_consumer=ws_consumer)
     return instance
 
   def is_session_ended(self):

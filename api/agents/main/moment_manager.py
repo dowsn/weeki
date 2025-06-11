@@ -21,7 +21,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 class MomentManager:
 
-  def __init__(self, user, chat_session, ai_model, stream_message):
+  def __init__(self, user, chat_session, ai_model, stream_message, ws_consumer=None):
     self.user = user
     self.has_message = False
     self.chat_session = chat_session
@@ -31,6 +31,7 @@ class MomentManager:
 
     self.pending_time_events = []  # ADD THIS LINE
     self.session_ended = False  # ADD THIS LINE
+    self.ws_consumer = ws_consumer  # ADD THIS LINE
 
     self.stream_message = stream_message
     self.converstation_helper = ConversationHelper(ai_model=self.ai_model)
@@ -287,26 +288,14 @@ class MomentManager:
     elif self.remaining_minutes == 0 and not self.session_ended:
       print("Session time expired - triggering automatic end")
       self.session_ended = True
+      self.time_manager.stop_monitoring()
+      
       try:
-        # Check state before proceeding
-        if self.state:
-          # Handle state processing
-          self.session_manager.update_state(self.state)
-          await self.session_manager.handle_state_end()
-
-          # Get end message
-          message = await self.session_manager.handle_end()
-          if message:
-            await self.stream_message(message)
-            
-          # Stop monitoring AFTER everything is done
-          self.time_manager.stop_monitoring()
-        else:
-          print("Cannot process end - state is None")
-          self.time_manager.stop_monitoring()
+        # For automatic timeout, directly call handle_close
+        # This will handle all the processing and streaming
+        await self.ws_consumer.handle_close(complete=True)
       except Exception as e:
-        print(f"Error in end handler: {e}")
-        self.time_manager.stop_monitoring()
+        print(f"Error in automatic end handler: {e}")
 
   def is_session_ended(self):
     """Check if session ended due to time"""
