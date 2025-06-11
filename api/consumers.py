@@ -301,10 +301,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     )
 
     # Send processing status to frontend immediately
-    if complete and self.is_connected:
+    if complete:
       await self.send(text_data=json.dumps({
           'type': 'processing_end',
-          'message': 'Processing your session data...'
+          'text': '',
+          'topics': ''
       }))
 
     final_message = message
@@ -325,7 +326,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Only get end message if we don't already have one and we're completing
         if complete and not final_message:
           print("Getting final message from agent")
-         
+
           final_message = await self.agent.end_session()
           print(
               f"Got end message from agent: {final_message[:100] if final_message else 'None'}..."
@@ -334,9 +335,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Stream the final message if we have one
         if final_message and self.is_connected:
           print("Streaming final message")
-          await self.stream_tokens(final_message,
-                                   message_type="automatic_message",
-                                   skip_new_message=True)  # Skip new_message since we already sent processing_end
+          await self.stream_tokens(
+              final_message,
+              message_type="automatic_message",
+              skip_new_message=True
+          )  # Skip new_message since we already sent processing_end
 
       # Close the connection
       if self.is_connected and not getattr(self, 'close_code', None):
