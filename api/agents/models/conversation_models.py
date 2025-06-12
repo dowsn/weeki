@@ -30,6 +30,7 @@ class TopicAndCharacterJSON(BaseModel):
       description=
       "Array of topics with separate entries for name and description")
   character: str = Field(description="Character description")
+  title: str = Field(description="Session title")
 
 
 class LogEntryJSON(BaseModel):
