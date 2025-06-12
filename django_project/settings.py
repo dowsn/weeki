@@ -29,8 +29,9 @@ SITE_URL = os.getenv('SITE_URL')
 SECRET_KEY = 'django-insecure-4ju2n@$f9d0c=h)_g0lbb%k9&@rf(xa$d$g$&5ri$uf)*gev^4'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-SETTINGS_DEBUG_AI = True
+PRODUCTION = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+DEBUG = not PRODUCTION
+SETTINGS_DEBUG_AI = not PRODUCTION
 
 ALLOWED_HOSTS = [".replit.dev", ".replit.app"]
 CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
@@ -315,4 +316,4 @@ PINECONE_INDEX_NAME = os.environ.get('PINECONE_INDEX_NAME', '')
 PINECONE_ENVIRONMENT = os.environ.get('PINECONE_ENVIRONMENT', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
-SHOW_ADMIN_DATA = True
+SHOW_ADMIN_DATA = not PRODUCTION
