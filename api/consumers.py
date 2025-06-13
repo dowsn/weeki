@@ -313,6 +313,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     try:
       if hasattr(self, 'agent') and self.agent is not None:
+        print(f"DEBUG: Agent exists, proceeding with close operations")
+        
         # CRITICAL: Stop time monitoring IMMEDIATELY
         if hasattr(self.agent,
                    'moment_manager') and self.agent.moment_manager is not None:
@@ -322,16 +324,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.agent.moment_manager.time_manager.stop_monitoring()
 
         # Save session state
-        await self.agent.save_session_state(complete)
+        print(f"DEBUG: About to save session state with complete={complete}")
+        try:
+          await self.agent.save_session_state(complete)
+          print(f"DEBUG: Session state saved successfully")
+        except Exception as e:
+          print(f"ERROR: Failed to save session state: {e}")
+          # Don't let this prevent the end_session call
+          pass
 
         # Only get end message if we don't already have one and we're completing
+        print(f"DEBUG: Checking end message conditions - complete={complete}, final_message={bool(final_message)}")
         if complete and not final_message:
           print("Getting final message from agent")
 
-          final_message = await self.agent.end_session()
-          print(
-              f"Got end message from agent: {final_message[:100] if final_message else 'None'}..."
-          )
+          try:
+            final_message = await self.agent.end_session()
+            print(
+                f"Got end message from agent: {final_message[:100] if final_message else 'None'}..."
+            )
+          except Exception as e:
+            print(f"ERROR: Failed to get end message from agent: {e}")
+            final_message = "Session ended due to timeout."
 
         # Stream the final message if we have one
         if final_message and self.is_connected:
