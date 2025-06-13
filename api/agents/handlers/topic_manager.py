@@ -52,8 +52,8 @@ class TopicManager:
     matched_topics = []
 
     if state.embedding:
-      print("searching for topics")
-      print("embedding length:", len(state.embedding))
+      print("🔍 TOPIC RETRIEVAL: Starting topic search process")
+      print(f"📊 EMBEDDING INFO: Vector length = {len(state.embedding)}")
 
       # Debug what's stored first
       # await self.pinecone_manager.debug_what_is_stored()
@@ -61,22 +61,24 @@ class TopicManager:
       # Try retrieval with very low threshold
 
       if state.embedding:
-        print("state_embedding is something", state.embedding)
+        print(f"✅ FIRST CHECK: State embedding exists - {len(state.embedding)} dimensions")
 
+      print("🎯 RETRIEVING: Querying Pinecone for similar topics...")
       new_topics = await self.pinecone_manager.retrieve_topics(
           embedding=state.embedding,
           base_threshold=0.3,  # Must be semantically relevant
           final_threshold=0.5,  # Must pass final quality check
           max_results=3)  # Maximum 3 topics
       matched_topics = new_topics
+      print(f"📦 RETRIEVED: Found {len(matched_topics)} matching topics from vector DB")
 
     state.current_topics = matched_topics
-    print(f"Matched topics: {len(matched_topics)}")
+    print(f"🎪 FINAL RESULT: {len(matched_topics)} topics matched for current conversation")
     for topic in matched_topics:
-      print(f"  - {topic.topic_name} (confidence: {topic.confidence:.3f})")
+      print(f"  📌 {topic.topic_name} (confidence: {topic.confidence:.3f})")
 
     if len(matched_topics) == 0:
-      print("No matching topics found - creating new topic")
+      print("🆕 NEW TOPIC: No matching topics found - will create new topic")
       state = await self.create_new_topic(state)
 
     state.embedding = None
