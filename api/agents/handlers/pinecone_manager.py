@@ -117,25 +117,42 @@ class PineconeManager:
       query_result = self.vector_store.query(vector_store_query)
       print(f"Found {len(query_result.nodes)} raw results")
 
-      # Debug: Check the actual structure of query_result.nodes
-      for i, item in enumerate(query_result.nodes):
-        print(f"🔧 DEBUG: query_result.nodes[{i}] type: {type(item)}")
-        print(f"🔧 DEBUG: query_result.nodes[{i}] attributes: {dir(item)}")
-        if hasattr(item, 'score'):
-          print(f"🔧 DEBUG: query_result.nodes[{i}].score: {item.score}")
-        break  # Just check the first one
+      # Debug: Check what attributes are available on query_result
+      print(f"🔧 DEBUG: query_result type: {type(query_result)}")
+      print(f"🔧 DEBUG: query_result attributes: {dir(query_result)}")
+      if hasattr(query_result, 'similarities'):
+        print(f"🔧 DEBUG: query_result.similarities: {query_result.similarities}")
+      if hasattr(query_result, 'scores'):
+        print(f"🔧 DEBUG: query_result.scores: {query_result.scores}")
+
+      # Convert TextNode results to NodeWithScore using scores from query_result
+      node_with_scores = []
+      if hasattr(query_result, 'nodes') and hasattr(query_result, 'similarities'):
+        # If we have both nodes and similarities, create NodeWithScore objects
+        print("🔧 DEBUG: Using nodes and similarities")
+        for i, node in enumerate(query_result.nodes):
+          if i < len(query_result.similarities):
+            score = query_result.similarities[i]
+            node_with_score = NodeWithScore(node=node, score=score)
+            node_with_scores.append(node_with_score)
+            print(f"🔧 DEBUG: Created NodeWithScore with score {score}")
+      elif hasattr(query_result, 'nodes'):
+        # Fallback: try to get scores from the nodes themselves or use a default
+        print("🔧 DEBUG: Using fallback method")
+        for node in query_result.nodes:
+          if hasattr(node, 'score'):
+            node_with_score = NodeWithScore(node=node, score=node.score)
+          else:
+            # Create with a default score if none available
+            node_with_score = NodeWithScore(node=node, score=0.0)
+          node_with_scores.append(node_with_score)
+
+      print(f"Created {len(node_with_scores)} NodeWithScore objects")
 
       # Stage 1: Filter by base similarity (semantic relevance)
       semantically_relevant = []
-      for node_with_score in query_result.nodes:
-        # Handle the case where nodes might not have scores directly attached
-        if hasattr(node_with_score, 'score'):
-          score = node_with_score.score
-        else:
-          # This should not happen with proper NodeWithScore objects
-          print(f"🔧 DEBUG: node_with_score missing score attribute, type: {type(node_with_score)}")
-          continue
-          
+      for node_with_score in node_with_scores:
+        score = node_with_score.score
         if score >= base_similarity_threshold:
           semantically_relevant.append(node_with_score)
           print(f"Passed semantic filter: score={score:.3f}")
