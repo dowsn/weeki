@@ -225,11 +225,16 @@ class ConversationGraphManager:
 
         # Save query before potentially entering topic exploration
         # This will save the recent human messages up to 1000 chars
+        print("🔧 DEBUG: About to create embedding...")
         await state.update_embedding()
+        print(f"🔧 DEBUG: Embedding created! Length: {len(state.embedding) if state.embedding else 'None'}")
+        print(f"🔧 DEBUG: Embedding type: {type(state.embedding)}")
 
         state.saved_query = state.prompt_query  # Save this for topic exploration
 
+        print("🔧 DEBUG: About to call check_topics...")
         state = await self.topic_manager.check_topics(state)
+        print("🔧 DEBUG: Returned from check_topics")
 
         print(f"potential_topic after check_topics: '{state.potential_topic}'")
 

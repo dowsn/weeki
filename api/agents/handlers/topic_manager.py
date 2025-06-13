@@ -51,6 +51,11 @@ class TopicManager:
     state.current_topics = []
     matched_topics = []
 
+    print(f"🔧 DEBUG: state.embedding = {state.embedding}")
+    print(f"🔧 DEBUG: type(state.embedding) = {type(state.embedding)}")
+    print(f"🔧 DEBUG: embedding is None? {state.embedding is None}")
+    print(f"🔧 DEBUG: embedding is empty list? {state.embedding == []}")
+
     if state.embedding:
       print("🔍 TOPIC RETRIEVAL: Starting topic search process")
       print(f"📊 EMBEDDING INFO: Vector length = {len(state.embedding)}")

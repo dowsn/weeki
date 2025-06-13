@@ -311,23 +311,31 @@ class ConversationState(BaseModel):
 
     # The embedding model's interface might be different from what you expected
     # Most embedding models have either embed_query or get_text_embedding method
-    emebedding_text = ""
+    embedding_text = ""  # Fixed typo: was "emebedding_text"
     if self.saved_query:
       embedding_text = self.saved_query
     else:
       embedding_text = self.prompt_query
 
     print("embedding_text:", embedding_text)
+    print(f"🔧 DEBUG: embedding_text length: {len(embedding_text)}")
+    print(f"🔧 DEBUG: embedding_text is empty? {embedding_text == ''}")
 
     embedding = []
-    if emebedding_text:
+    if embedding_text:  # Fixed typo: was "emebedding_text"
+      print("🔧 DEBUG: About to call embedding model...")
       if hasattr(embedding_model, 'embed_query'):
         embedding = embedding_model.embed_query(embedding_text)
+        print(f"🔧 DEBUG: embed_query returned: {len(embedding) if embedding else 'None'} dimensions")
       elif hasattr(embedding_model, 'get_text_embedding'):
         embedding = embedding_model.get_text_embedding(embedding_text)
+        print(f"🔧 DEBUG: get_text_embedding returned: {len(embedding) if embedding else 'None'} dimensions")
       else:
         raise ValueError("Embedding model has no recognized embedding method")
+    else:
+      print("🔧 DEBUG: embedding_text is empty, returning empty embedding")
 
+    print(f"🔧 DEBUG: Final embedding length: {len(embedding) if embedding else 'None'}")
     return embedding
 
   def split_messages(self, window_size=10000):
