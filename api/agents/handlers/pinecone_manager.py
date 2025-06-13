@@ -270,7 +270,14 @@ class PineconeManager:
 
           try:
             topic_id = int(topic_id)
-            topic = Topic.objects.get(id=topic_id)
+            
+            # Use sync_to_async for Django ORM call
+            from asgiref.sync import sync_to_async
+            @sync_to_async
+            def get_topic():
+              return Topic.objects.get(id=topic_id)
+            
+            topic = await get_topic()
           except (ValueError, TypeError, Topic.DoesNotExist) as e:
             logger.warning(f"Invalid topic_id or topic not found: {topic_id}")
             continue
