@@ -266,8 +266,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                          topics=topics,
                                          message_type="message")
               elif response.response_type == "topic":
+                topics = response.topic_names if hasattr(response, 'topic_names') and response.topic_names else "No current topics"
                 await self.stream_tokens(message=response.response,
-                                         topics="No current topics",
+                                         topics=topics,
                                          message_type="topic")
 
       except Exception as stream_error:
