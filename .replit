@@ -11,9 +11,8 @@ packages = ["bash", "libxcrypt"]
 run = [
   "sh",
   "-c",
-  "watchfiles --reload-signal SIGHUP 'python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application'",
+  "python -m daphne -p 3000 -b 0.0.0.0 django_project.asgi:application",
 ]
-
 
 deploymentTarget = "cloudrun"
 

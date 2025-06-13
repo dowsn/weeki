@@ -62,7 +62,6 @@ from app.models import Conversation_Session, Conversation
 from .serializers.chat_serializer import MessageSerializer
 from .utilities.anthropic import AnthropicAPIUtility
 from rest_framework.authtoken.models import Token
-from .services import deepgram_text_to_speech
 
 from channels.generic.http import AsyncHttpConsumer
 from django.views.generic import TemplateView

@@ -24,10 +24,8 @@ langchain-pinecone
 pinecone-notebooks
 langchain-xai
 pydantic
-deepgram
 stripe
 jinja2
-llama-index-embeddings-huggingface --no-deps
 torch
 Pillow
 nltk==3.9.1
