@@ -117,15 +117,30 @@ class PineconeManager:
       query_result = self.vector_store.query(vector_store_query)
       print(f"Found {len(query_result.nodes)} raw results")
 
+      # Debug: Check the actual structure of query_result.nodes
+      for i, item in enumerate(query_result.nodes):
+        print(f"🔧 DEBUG: query_result.nodes[{i}] type: {type(item)}")
+        print(f"🔧 DEBUG: query_result.nodes[{i}] attributes: {dir(item)}")
+        if hasattr(item, 'score'):
+          print(f"🔧 DEBUG: query_result.nodes[{i}].score: {item.score}")
+        break  # Just check the first one
+
       # Stage 1: Filter by base similarity (semantic relevance)
       semantically_relevant = []
       for node_with_score in query_result.nodes:
-        if node_with_score.score >= base_similarity_threshold:
-          semantically_relevant.append(node_with_score)
-          print(f"Passed semantic filter: score={node_with_score.score:.3f}")
+        # Handle the case where nodes might not have scores directly attached
+        if hasattr(node_with_score, 'score'):
+          score = node_with_score.score
         else:
-          print(
-              f"Filtered out semantically: score={node_with_score.score:.3f}")
+          # This should not happen with proper NodeWithScore objects
+          print(f"🔧 DEBUG: node_with_score missing score attribute, type: {type(node_with_score)}")
+          continue
+          
+        if score >= base_similarity_threshold:
+          semantically_relevant.append(node_with_score)
+          print(f"Passed semantic filter: score={score:.3f}")
+        else:
+          print(f"Filtered out semantically: score={score:.3f}")
 
       print(f"After semantic filtering: {len(semantically_relevant)} results")
 
