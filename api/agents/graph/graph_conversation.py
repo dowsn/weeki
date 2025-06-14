@@ -258,9 +258,9 @@ class ConversationGraphManager:
     if not state.embedding:
       await state.update_embedding()
 
-    state.embedding = None
-
     state = await self.log_manager.check_logs(state)
+    
+    state.embedding = None
 
     state.prepare_prompt_process_message()
 

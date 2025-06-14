@@ -2,6 +2,7 @@
 from typing import AsyncGenerator
 from datetime import datetime
 import asyncio
+import json
 from langchain_xai import ChatXAI
 from openai import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
