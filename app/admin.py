@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (AppFeedback, Chat_Session, Log, Profile, Topic, Prompt,
                      AIModel, Prompt_Debug, PastTopics, PastCharacters,
-                     Message, Summary)
+                     Message, Summary, SessionTopic)
 from .models import ErrorLog
 from django.conf import settings
 
@@ -38,6 +38,13 @@ class ErrorLogAdmin(admin.ModelAdmin):
     return False
 
 
+# Inline admin for SessionTopic
+class SessionTopicInline(admin.TabularInline):
+    model = SessionTopic
+    extra = 0
+    fields = ('topic', 'status', 'confidence')
+    readonly_fields = ('confidence',)
+
 # Custom admin for Chat_Session with useful fields
 @admin.register(Chat_Session)
 class ChatSessionAdmin(admin.ModelAdmin):
@@ -45,6 +52,7 @@ class ChatSessionAdmin(admin.ModelAdmin):
     list_filter = ( 'first', 'user')
     search_fields = ('title', 'summary', 'user__username')
     readonly_fields = ( 'character')
+    inlines = [SessionTopicInline]
 
     fieldsets = (
         ('Basic Info', {
@@ -58,6 +66,18 @@ class ChatSessionAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
+        return super(admin.ModelAdmin, self).get_queryset(request)
+
+# Separate admin for SessionTopic
+@admin.register(SessionTopic)
+class SessionTopicAdmin(admin.ModelAdmin):
+    list_display = ('session', 'topic', 'status', 'confidence')
+    list_filter = ('status', 'session__user')
+    search_fields = ('session__title', 'topic__name', 'session__user__username')
+    readonly_fields = ('confidence',)
+    
+    def get_queryset(self, request):
+        # Always show data for SessionTopic regardless of SHOW_ADMIN_DATA
         return super(admin.ModelAdmin, self).get_queryset(request)
 
 # Register all models with SecureAdmin
