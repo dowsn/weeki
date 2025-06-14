@@ -1,6 +1,7 @@
 # moment_manager.py
 from typing import AsyncGenerator
 from datetime import datetime
+import asyncio
 from langchain_xai import ChatXAI
 from openai import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
@@ -288,6 +289,7 @@ class MomentManager:
     elif self.remaining_minutes == 0 and not self.session_ended:
       print("Session time expired - triggering automatic end")
       self.session_ended = True
+      print("DEBUG: Stopping time manager from moment_manager timeout")
       self.time_manager.stop_monitoring()
       
       try:
@@ -428,10 +430,20 @@ class MomentManager:
     #   return ""  # Already ended
 
     self.session_ended = True
+    print("DEBUG: Stopping time manager from end_session")
     self.time_manager.stop_monitoring()
 
     self.session_manager.update_state(self.state)
-    await self.session_manager.handle_state_end()
+    
+    # Run handle_state_end without timeout
+    try:
+      print("DEBUG: About to call handle_state_end")
+      await self.session_manager.handle_state_end()
+      print("DEBUG: handle_state_end completed successfully")
+    except Exception as e:
+      print(f"ERROR: handle_state_end failed: {e} - continuing with end message")
 
+    print("DEBUG: About to call handle_end")
     response = await self.session_manager.handle_end()
+    print(f"DEBUG: handle_end completed, response length: {len(response) if response else 0}")
     return response.strip() if response else ""

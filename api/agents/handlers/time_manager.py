@@ -16,6 +16,7 @@ class TimeManager:
     self.chat_session = chat_session
     self._is_paused = False  # ✅ Add pause state
     self._pause_start_time = None  # ✅ Track when pause started
+    self._is_stopped = False  # ✅ Add stop state to prevent multiple cancellations
 
   async def start_monitoring(self) -> None:
     print("monitoring started")
@@ -28,19 +29,19 @@ class TimeManager:
   async def _monitor_time(self) -> None:
     print("monitoring time")
     try:
-        while self.remaining_minutes > 0:
+        while self.remaining_minutes > 0 and not self._is_stopped:
             print("remaining_minutes", self.remaining_minutes)
 
             # ✅ Track elapsed seconds accurately
             seconds_elapsed = 0
             
             # Sleep in 1-second intervals to check pause state
-            while seconds_elapsed < 60 and self.remaining_minutes > 0:
+            while seconds_elapsed < 60 and self.remaining_minutes > 0 and not self._is_stopped:
                 await asyncio.sleep(1)
 
-                # Check if cancelled
-                if not self._monitor_task or self._monitor_task.cancelled():
-                    print("Task cancelled, stopping time monitoring")
+                # Check if cancelled or stopped
+                if self._is_stopped or not self._monitor_task or self._monitor_task.cancelled():
+                    print("Task cancelled or stopped, stopping time monitoring")
                     return
 
                 # ✅ Only count seconds when not paused
@@ -58,7 +59,7 @@ class TimeManager:
 
     except asyncio.CancelledError:
         print("Time monitoring cancelled via exception")
-        return
+        raise  # Re-raise to properly handle the cancellation
     except Exception as e:
         print(f"Error in time monitoring: {e}")
 
@@ -90,9 +91,16 @@ class TimeManager:
         self._pause_start_time = None
 
   def stop_monitoring(self) -> None:
-    if self._monitor_task:
+    """Stop time monitoring safely - only once"""
+    if self._is_stopped:
+      print("Time monitoring already stopped, ignoring duplicate stop call")
+      return
+      
+    self._is_stopped = True
+    if self._monitor_task and not self._monitor_task.cancelled():
+      print("Cancelling time monitoring task")
       self._monitor_task.cancel()
-      self._monitor_task = None
+    self._monitor_task = None
 
   async def get_remaining_time(self) -> int:
     return self.remaining_minutes
