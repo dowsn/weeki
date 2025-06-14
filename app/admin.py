@@ -41,10 +41,10 @@ class ErrorLogAdmin(admin.ModelAdmin):
 # Custom admin for Chat_Session with useful fields
 @admin.register(Chat_Session)
 class ChatSessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'title', 'date_created', 'is_active', 'time_left', 'first')
-    list_filter = ( 'first', 'date_created', 'user')
+    list_display = ('id', 'user', 'title', 'time_left', 'first', 'topics', 'character', 'summary')
+    list_filter = ( 'first', 'user')
     search_fields = ('title', 'summary', 'user__username')
-    readonly_fields = ('date_created', 'character')
+    readonly_fields = ( 'character')
 
     fieldsets = (
         ('Basic Info', {
@@ -53,9 +53,7 @@ class ChatSessionAdmin(admin.ModelAdmin):
         ('Session Details', {
             'fields': ('time_left', 'summary', 'character', 'topic_names')
         }),
-        ('Metadata', {
-            'fields': ('date_created',)
-        }),
+
     )
 
     def get_queryset(self, request):
