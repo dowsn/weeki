@@ -1,7 +1,7 @@
 from typing import List
 from api.agents.handlers.pinecone_manager import PineconeManager
 from channels.db import database_sync_to_async
-from app.models import SessionLog, Topic
+from app.models import SessionLog, Topic, Log
 import numpy as np
 from api.agents.models.conversation_models import ConversationState, LogState
 
@@ -11,11 +11,19 @@ class LogManager:
       self.pinecone_manager = pinecone_manager
 
   async def check_logs(self, state: ConversationState) -> ConversationState:
+      print("🔍 LOG_MANAGER: Starting check_logs")
       state.current_logs = []
       matched_logs = []
 
+      print(f"🔍 LOG_MANAGER: state.embedding exists: {state.embedding is not None}")
+      print(f"🔍 LOG_MANAGER: embedding length: {len(state.embedding) if state.embedding else 'None'}")
+      print(f"🔍 LOG_MANAGER: user_id: {self.pinecone_manager.user_id}")
+
       if state.embedding:
-          print("Searching for logs with time-boosted scoring")
+          print("🔍 LOG_MANAGER: Searching for logs with time-boosted scoring")
+
+          # First, let's check if any logs exist in the database at all
+          await self._debug_database_logs()
 
           # Use the same parameters as topics for consistency
           new_logs = await self.pinecone_manager.retrieve_logs(
@@ -24,13 +32,34 @@ class LogManager:
               final_threshold=0.5,     # Must pass final quality check
               max_results=3)           # Maximum 3 logs (same as topics)
           matched_logs = new_logs
+          print(f"🔍 LOG_MANAGER: retrieve_logs returned {len(matched_logs)} logs")
+      else:
+          print("🔍 LOG_MANAGER: No embedding available, skipping log search")
 
       state.current_logs = matched_logs
-      print(f"Matched logs: {len(matched_logs)}")
-      for log in matched_logs:
-          print(f"  - {log.topic_name} (confidence: {log.confidence:.3f})")
+      print(f"🔍 LOG_MANAGER: Final matched logs: {len(matched_logs)}")
+      for i, log in enumerate(matched_logs):
+          print(f"🔍 LOG_MANAGER: Log {i+1}: {log.topic_name} (confidence: {getattr(log, 'confidence', 'N/A')})")
 
       return state
+
+  async def _debug_database_logs(self):
+      """Debug method to check what logs exist in the database"""
+      @database_sync_to_async
+      def check_logs():
+          total_logs = Log.objects.count()
+          user_logs = Log.objects.filter(user_id=self.pinecone_manager.user_id).count()
+          recent_logs = Log.objects.filter(user_id=self.pinecone_manager.user_id).order_by('-id')[:5]
+          
+          print(f"🔍 DB_DEBUG: Total logs in database: {total_logs}")
+          print(f"🔍 DB_DEBUG: Logs for user {self.pinecone_manager.user_id}: {user_logs}")
+          
+          for i, log in enumerate(recent_logs):
+              print(f"🔍 DB_DEBUG: Recent log {i+1}: session={log.chat_session_id}, topic={log.topic_id}, text='{log.text[:50]}...'")
+          
+          return total_logs, user_logs
+
+      await check_logs()
 
   async def get_session_logs(self,
                            session_id: int,

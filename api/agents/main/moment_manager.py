@@ -302,18 +302,26 @@ class MomentManager:
               'topics': ''
           }))
         
-        # Generate the end message without complex state processing
-        print("DEBUG: Generating timeout message directly")
+        # Generate the end message with full state processing (including summary)
+        print("DEBUG: Calling handle_state_end for timeout summary generation")
+        await self.session_manager.handle_state_end()
+        print("DEBUG: Generating timeout message")
         timeout_message = await self.session_manager.handle_end()
         
         # Stream it directly to the user
         if timeout_message and self.ws_consumer.is_connected:
           print("DEBUG: Streaming timeout message")
-          await self.ws_consumer.stream_tokens(
-              timeout_message,
-              message_type="automatic_message",
-              skip_new_message=True
-          )
+          try:
+            await self.ws_consumer.stream_tokens(
+                timeout_message,
+                message_type="automatic_message",
+                skip_new_message=True
+            )
+            print("DEBUG: Timeout message streaming completed")
+          except Exception as stream_error:
+            print(f"ERROR: Failed to stream timeout message: {stream_error}")
+        else:
+          print(f"DEBUG: Cannot stream - timeout_message={bool(timeout_message)}, connected={self.ws_consumer.is_connected if hasattr(self, 'ws_consumer') else 'no_consumer'}")
         
         # Save session state after message (like handle_close does for complete=True)
         print("DEBUG: Saving session state after timeout message")

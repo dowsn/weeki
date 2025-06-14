@@ -115,7 +115,9 @@ class PineconeManager:
 
       # Execute query
       query_result = self.vector_store.query(vector_store_query)
-      print(f"Found {len(query_result.nodes)} raw results")
+      print(f"🔧 RETRIEVER: Found {len(query_result.nodes)} raw results from vector store")
+      print(f"🔧 RETRIEVER: Vector store namespace: {getattr(self.vector_store, 'namespace', 'unknown')}")
+      print(f"🔧 RETRIEVER: Query filters: user_id={self.user_id}")
 
       # Debug: Check what attributes are available on query_result
       print(f"🔧 DEBUG: query_result type: {type(query_result)}")
@@ -328,6 +330,10 @@ class PineconeManager:
     """
     Retrieve logs similar to the query with time-boost applied to scores.
     """
+    print(f"🔍 PINECONE: Starting retrieve_logs for user_id={self.user_id}")
+    print(f"🔍 PINECONE: Embedding length: {len(embedding)}")
+    print(f"🔍 PINECONE: Thresholds - base: {base_threshold}, final: {final_threshold}")
+    
     try:
       # Create retriever with time BOOST functions (not decay)
       retriever = self.TimeDecayRetriever(
@@ -337,6 +343,8 @@ class PineconeManager:
           adjust_score_fn=self.adjust_score_with_time_boost,
           parent_manager=self)
 
+      print("🔍 PINECONE: Created TimeDecayRetriever for logs namespace")
+
       # Use the new 3-stage retrieval system
       results = await asyncio.get_event_loop().run_in_executor(
           self.executor,
@@ -345,15 +353,20 @@ class PineconeManager:
                                       final_score_threshold=final_threshold,
                                       max_results=max_results))
 
+      print(f"🔍 PINECONE: Raw retrieval returned {len(results)} results")
+
       # Convert results to LogState objects
       logs = []
-      for node_with_score in results:
+      for i, node_with_score in enumerate(results):
+        print(f"🔍 PINECONE: Processing result {i+1}")
         try:
           node = node_with_score.node
           metadata = node.metadata
+          print(f"🔍 PINECONE: Node metadata: {metadata}")
 
           topic_id = metadata.get('topic_id')
           chat_session_id = metadata.get('chat_session_id')
+          print(f"🔍 PINECONE: Extracted topic_id={topic_id}, chat_session_id={chat_session_id}")
 
           from asgiref.sync import sync_to_async
 
@@ -363,13 +376,19 @@ class PineconeManager:
               topic = Topic.objects.get(id=topic_id)
               # Get logs by chat_session_id, not by log id
               logs = Log.objects.filter(chat_session_id=chat_session_id)
+              print(f"🔍 PINECONE: Found topic '{topic.name}' and {logs.count()} logs for session {chat_session_id}")
               return topic, logs
-            except (Topic.DoesNotExist, AttributeError):
+            except (Topic.DoesNotExist, AttributeError) as e:
+              print(f"🔍 PINECONE: Error getting topic/logs: {e}")
               return None, None
 
           topic, session_logs = await get_topic_and_logs()
 
-          if not topic or not session_logs:
+          if not topic:
+            print(f"🔍 PINECONE: No topic found for topic_id={topic_id}")
+            continue
+          if not session_logs:
+            print(f"🔍 PINECONE: No logs found for chat_session_id={chat_session_id}")
             continue
 
           # Parse date
@@ -392,18 +411,22 @@ class PineconeManager:
               topic_name=topic.name,
               text=node.text,  # Use the text from the vector store node
               date=date,
-              chat_session_id=chat_session_id)
+              chat_session_id=chat_session_id,
+              confidence=node_with_score.score)  # Add confidence
 
           logs.append(log_state)
+          print(f"🔍 PINECONE: Created LogState for topic '{topic.name}' with confidence {node_with_score.score:.3f}")
 
         except Exception as e:
+          print(f"🔍 PINECONE: Error processing log result {i+1}: {str(e)}")
           logger.warning(f"Error processing log: {str(e)}")
           continue
 
-      print(f"Returning {len(logs)} logs")
+      print(f"🔍 PINECONE: Returning {len(logs)} final logs")
       return logs
 
     except Exception as e:
+      print(f"🔍 PINECONE: Major error in retrieve_logs: {str(e)}")
       logger.error(f"Error retrieving logs: {str(e)}")
       return []
 
