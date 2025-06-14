@@ -293,11 +293,16 @@ class MomentManager:
       self.time_manager.stop_monitoring()
       
       try:
-        # Use the same approach as manual 'end' signal - just send the message directly
-        # Don't call handle_close which does complex processing
-        print("DEBUG: Generating timeout message directly")
+        # Send processing_end signal to frontend (like handle_close does)
+        if self.ws_consumer.is_connected:
+          await self.ws_consumer.send(text_data=json.dumps({
+              'type': 'processing_end',
+              'text': '',
+              'topics': ''
+          }))
         
         # Generate the end message without complex state processing
+        print("DEBUG: Generating timeout message directly")
         timeout_message = await self.session_manager.handle_end()
         
         # Stream it directly to the user
@@ -308,6 +313,14 @@ class MomentManager:
               message_type="automatic_message",
               skip_new_message=True
           )
+        
+        # Save session state after message (like handle_close does for complete=True)
+        print("DEBUG: Saving session state after timeout message")
+        try:
+          await self.ws_consumer.agent.save_session_state(True)
+          print("DEBUG: Session state saved successfully after timeout")
+        except Exception as e:
+          print(f"ERROR: Failed to save session state after timeout: {e}")
         
         # Now close the connection
         if self.ws_consumer.is_connected:
