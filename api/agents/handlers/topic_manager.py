@@ -81,6 +81,10 @@ class TopicManager:
     print(f"🎪 FINAL RESULT: {len(matched_topics)} topics matched for current conversation")
     for topic in matched_topics:
       print(f"  📌 {topic.topic_name} (confidence: {topic.confidence:.3f})")
+    
+    # Create SessionTopic entries for matched existing topics
+    if matched_topics:
+      await self._create_session_topic_entries(state.chat_session_id, matched_topics)
 
     if len(matched_topics) == 0:
       print("🆕 NEW TOPIC: No matching topics found - will create new topic")
@@ -89,6 +93,30 @@ class TopicManager:
     state.embedding = None
 
     return state
+
+  async def _create_session_topic_entries(self, session_id: int, topics: List[TopicState]):
+    """Create SessionTopic entries for existing topics if they don't already exist"""
+    @database_sync_to_async
+    def create_entries():
+      for topic in topics:
+        # Check if SessionTopic entry already exists
+        existing = SessionTopic.objects.filter(
+          session_id=session_id,
+          topic_id=topic.topic_id
+        ).exists()
+        
+        if not existing:
+          SessionTopic.objects.create(
+            session_id=session_id,
+            topic_id=topic.topic_id,
+            status=1,  # Active status
+            confidence=topic.confidence
+          )
+          print(f"Created SessionTopic entry for existing topic: {topic.topic_name}")
+        else:
+          print(f"SessionTopic entry already exists for: {topic.topic_name}")
+    
+    await create_entries()
 
   async def create_new_topic(self,
                              state: ConversationState) -> ConversationState:
