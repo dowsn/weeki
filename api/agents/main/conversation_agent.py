@@ -99,19 +99,14 @@ class ConversationAgent:
       await asyncio.sleep(0.01)  # Small delay
 
   async def update_chat_session(self, state, remaining_time):
-
-    self.chat_session.time_left = remaining_time
-
-    # self.chat_session.potential_topic = state.potential_topic
-    # self.chat_session.chars_since_check = state.chars_since_check
-    # self.chat_session.saved_query = state.saved_query
-    # Fix: Create a proper async wrapper for the save method
+    # Use Django's update() for faster database operation
     @database_sync_to_async
-    def save_chat_session():
-      self.chat_session.save()
-
-    # Call the wrapped function
-    await save_chat_session()
+    def update_time_left():
+      Chat_Session.objects.filter(id=self.chat_session.id).update(time_left=remaining_time)
+    
+    # Update local instance and database
+    self.chat_session.time_left = remaining_time
+    await update_time_left()
 
   async def end_session(self) -> str:
     """End the session and return any final message (without streaming it)."""
@@ -130,16 +125,32 @@ class ConversationAgent:
     Save the current conversation state to the database using the SessionTopic
     and SessionLog association models for better data organization and retrieval
     """
+    print("DEBUG: Starting save_session_state")
+    
     # Get current state and remaining time
+    try:
+      print("DEBUG: Getting current state")
+      current_state = self.moment_manager.get_current_state()
+      print("DEBUG: Getting remaining time")
+      remaining_time = await self.moment_manager.get_remaining_time()
+      print(f"DEBUG: Got remaining time: {remaining_time}")
 
-    current_state = self.moment_manager.get_current_state()
-    remaining_time = await self.moment_manager.get_remaining_time()
+      if complete:
+        remaining_time = 0
+        print("DEBUG: Set remaining time to 0 for complete session")
 
-    if complete:
-      remaining_time = 0
-
-    # Update basic session fields
-    await self.update_chat_session(current_state, remaining_time)
+      # Update basic session fields - fail fast if there's an issue
+      print("DEBUG: About to update chat session")
+      try:
+        await self.update_chat_session(current_state, remaining_time)
+        print("DEBUG: Chat session updated successfully")
+      except Exception as e:
+        print(f"ERROR: update_chat_session failed: {e}")
+        # Continue anyway - don't let this block the end session
+        
+    except Exception as e:
+      print(f"ERROR: save_session_state failed: {e}")
+      # Don't let this prevent the session from ending
 
     # # Prepare lists for bulk operations
     # session_topics = []
