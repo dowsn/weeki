@@ -323,15 +323,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
           if hasattr(self.agent.moment_manager, 'time_manager'):
             self.agent.moment_manager.time_manager.stop_monitoring()
 
-        # Save session state
-        print(f"DEBUG: About to save session state with complete={complete}")
-        try:
-          await self.agent.save_session_state(complete)
-          print(f"DEBUG: Session state saved successfully")
-        except Exception as e:
-          print(f"ERROR: Failed to save session state: {e}")
-          # Don't let this prevent the end_session call
-          pass
+        # Save session state - skip for automatic timeout to prioritize final message
+        if not complete:
+          print(f"DEBUG: About to save session state with complete={complete}")
+          try:
+            await self.agent.save_session_state(complete)
+            print(f"DEBUG: Session state saved successfully")
+          except Exception as e:
+            print(f"ERROR: Failed to save session state: {e}")
+        else:
+          print(f"DEBUG: Skipping save_session_state for automatic timeout - prioritizing final message")
 
         # Only get end message if we don't already have one and we're completing
         print(f"DEBUG: Checking end message conditions - complete={complete}, final_message={bool(final_message)}")
@@ -355,6 +356,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
               message_type="automatic_message",
               skip_new_message=True
           )  # Skip new_message since we already sent processing_end
+
+        # Now save session state AFTER sending the final message (only for automatic timeout)
+        if complete:
+          print(f"DEBUG: Now saving session state after final message sent")
+          try:
+            await self.agent.save_session_state(complete)
+            print(f"DEBUG: Session state saved successfully after final message")
+          except Exception as e:
+            print(f"ERROR: Failed to save session state after final message: {e}")
 
       # Close the connection
       if self.is_connected and not getattr(self, 'close_code', None):
