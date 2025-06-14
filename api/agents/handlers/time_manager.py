@@ -59,7 +59,7 @@ class TimeManager:
 
     except asyncio.CancelledError:
         print("Time monitoring cancelled via exception")
-        raise  # Re-raise to properly handle the cancellation
+        return  # Exit cleanly without re-raising
     except Exception as e:
         print(f"Error in time monitoring: {e}")
 
