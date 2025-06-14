@@ -42,13 +42,13 @@ class ErrorLogAdmin(admin.ModelAdmin):
 @admin.register(Chat_Session)
 class ChatSessionAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'title', 'date_created', 'is_active', 'time_left', 'first')
-    list_filter = ('is_active', 'first', 'date_created', 'user')
+    list_filter = ( 'first', 'date_created', 'user')
     search_fields = ('title', 'summary', 'user__username')
     readonly_fields = ('date_created', 'character')
-    
+
     fieldsets = (
         ('Basic Info', {
-            'fields': ('user', 'title', 'is_active', 'first')
+            'fields': ('user', 'title',  'first')
         }),
         ('Session Details', {
             'fields': ('time_left', 'summary', 'character', 'topic_names')
@@ -57,7 +57,7 @@ class ChatSessionAdmin(admin.ModelAdmin):
             'fields': ('date_created',)
         }),
     )
-    
+
     def get_queryset(self, request):
         # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
         return super(admin.ModelAdmin, self).get_queryset(request)
