@@ -293,9 +293,27 @@ class MomentManager:
       self.time_manager.stop_monitoring()
       
       try:
-        # For automatic timeout, directly call handle_close
-        # This will handle all the processing and streaming
-        await self.ws_consumer.handle_close(complete=True)
+        # Use the same approach as manual 'end' signal - just send the message directly
+        # Don't call handle_close which does complex processing
+        print("DEBUG: Generating timeout message directly")
+        
+        # Generate the end message without complex state processing
+        timeout_message = await self.session_manager.handle_end()
+        
+        # Stream it directly to the user
+        if timeout_message and self.ws_consumer.is_connected:
+          print("DEBUG: Streaming timeout message")
+          await self.ws_consumer.stream_tokens(
+              timeout_message,
+              message_type="automatic_message",
+              skip_new_message=True
+          )
+        
+        # Now close the connection
+        if self.ws_consumer.is_connected:
+          print("DEBUG: Closing WebSocket after timeout message")
+          await self.ws_consumer.close(code=4000)
+          
       except Exception as e:
         print(f"Error in automatic end handler: {e}")
 
