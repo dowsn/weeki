@@ -164,6 +164,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
   async def receive(self, text_data):
     """CORRECTED VERSION with better end handling"""
+    # Early exit if connection is already closed
+    if not self.is_connected:
+      print("Ignoring message - connection already closed")
+      return
+      
     try:
       data = json.loads(text_data)
       print(f"Received data: {data}")
@@ -186,10 +191,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.agent, 'moment_manager'):
           if hasattr(self.agent.moment_manager, 'time_manager'):
             self.agent.moment_manager.time_manager.pause_monitoring()
-            await self.send(text_data=json.dumps({
-                'type': 'timer_paused',
-                'message': 'Timer paused'
-            }))
+            # Check if connection is still open before sending
+            if self.is_connected:
+              await self.send(text_data=json.dumps({
+                  'type': 'timer_paused',
+                  'message': 'Timer paused'
+              }))
         return
 
       # ✅ Handle resume signal
@@ -199,10 +206,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.agent, 'moment_manager'):
           if hasattr(self.agent.moment_manager, 'time_manager'):
             self.agent.moment_manager.time_manager.resume_monitoring()
-            await self.send(text_data=json.dumps({
-                'type': 'timer_resumed',
-                'message': 'Timer resumed'
-            }))
+            # Check if connection is still open before sending
+            if self.is_connected:
+              await self.send(text_data=json.dumps({
+                  'type': 'timer_resumed',
+                  'message': 'Timer resumed'
+              }))
         return
 
       # Handle close/end signals

@@ -25,10 +25,15 @@ class TopicPotentialJSON(BaseModel):
   question: str = Field(description="Question about the topic")
 
 
+class TopicWithIDJSON(BaseModel):
+  topic_id: str = Field(description="Topic ID")
+  topic_name: str = Field(description="Topic name")
+  text: str = Field(description="Topic description")
+
 class TopicAndCharacterJSON(BaseModel):
-  topics: List[Dict[str, Union[str, str]]] = Field(
+  topics: List[TopicWithIDJSON] = Field(
       description=
-      "Array of topics with separate entries for name and description")
+      "Array of topics with their IDs, names, and descriptions")
   character: str = Field(description="Character description")
   title: str = Field(description="Session title")
 

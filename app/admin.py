@@ -38,9 +38,33 @@ class ErrorLogAdmin(admin.ModelAdmin):
     return False
 
 
+# Custom admin for Chat_Session with useful fields
+@admin.register(Chat_Session)
+class ChatSessionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'title', 'date_created', 'is_active', 'time_left', 'first')
+    list_filter = ('is_active', 'first', 'date_created', 'user')
+    search_fields = ('title', 'summary', 'user__username')
+    readonly_fields = ('date_created', 'character')
+    
+    fieldsets = (
+        ('Basic Info', {
+            'fields': ('user', 'title', 'is_active', 'first')
+        }),
+        ('Session Details', {
+            'fields': ('time_left', 'summary', 'character', 'topic_names')
+        }),
+        ('Metadata', {
+            'fields': ('date_created',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
+        return super(admin.ModelAdmin, self).get_queryset(request)
+
 # Register all models with SecureAdmin
 admin.site.register(Profile, SecureAdmin)
-admin.site.register(Chat_Session, SecureAdmin)
+# Chat_Session is registered above with custom admin
 admin.site.register(Log, SecureAdmin)
 admin.site.register(Message, SecureAdmin)
 admin.site.register(Summary, SecureAdmin)
