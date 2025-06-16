@@ -304,7 +304,13 @@ class MomentManager:
         
         # Generate the end message with full state processing (including summary)
         print("DEBUG: Calling handle_state_end for timeout summary generation")
-        await self.session_manager.handle_state_end()
+        try:
+          await self.session_manager.handle_state_end()
+          print("DEBUG: handle_state_end completed successfully")
+        except Exception as state_error:
+          print(f"ERROR: handle_state_end failed: {state_error}")
+          print("DEBUG: Continuing with handle_end without summary")
+        
         print("DEBUG: Generating timeout message")
         timeout_message = await self.session_manager.handle_end()
         

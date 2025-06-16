@@ -370,7 +370,9 @@ class PineconeManager:
 
           from asgiref.sync import sync_to_async
 
-          @sync_to_async
+          from channels.db import database_sync_to_async
+          
+          @database_sync_to_async
           def get_topic_and_logs():
             try:
               topic = Topic.objects.get(id=topic_id)
