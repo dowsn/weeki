@@ -378,13 +378,15 @@ class PineconeManager:
               topic = Topic.objects.get(id=topic_id)
               # Get logs by chat_session_id, not by log id
               logs = Log.objects.filter(chat_session_id=chat_session_id)
-              print(f"🔍 PINECONE: Found topic '{topic.name}' and {logs.count()} logs for session {chat_session_id}")
-              return topic, logs
+              log_count = logs.count()  # Execute count query while in sync context
+              topic_name = topic.name   # Access attribute while in sync context
+              print(f"🔍 PINECONE: Found topic '{topic_name}' and {log_count} logs for session {chat_session_id}")
+              return topic, logs, topic_name, log_count
             except (Topic.DoesNotExist, AttributeError) as e:
               print(f"🔍 PINECONE: Error getting topic/logs: {e}")
-              return None, None
+              return None, None, None, 0
 
-          topic, session_logs = await get_topic_and_logs()
+          topic, session_logs, topic_name, log_count = await get_topic_and_logs()
 
           if not topic:
             print(f"🔍 PINECONE: No topic found for topic_id={topic_id}")
@@ -410,14 +412,14 @@ class PineconeManager:
           # Since the node text contains the prepared text, we'll use that
           log_state = LogState(
               topic_id=topic_id,
-              topic_name=topic.name,
+              topic_name=topic_name,
               text=node.text,  # Use the text from the vector store node
               date=date,
               chat_session_id=chat_session_id,
               confidence=node_with_score.score)  # Add confidence
 
           logs.append(log_state)
-          print(f"🔍 PINECONE: Created LogState for topic '{topic.name}' with confidence {node_with_score.score:.3f}")
+          print(f"🔍 PINECONE: Created LogState for topic '{topic_name}' with confidence {node_with_score.score:.3f}")
 
         except Exception as e:
           print(f"🔍 PINECONE: Error processing log result {i+1}: {str(e)}")
