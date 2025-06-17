@@ -360,23 +360,32 @@ class PineconeManager:
       for i, node_with_score in enumerate(results):
         print(f"🔍 PINECONE: Processing result {i+1}")
         try:
+          print(f"🔍 PINECONE: Step 1 - Getting node from result")
           node = node_with_score.node
+          print(f"🔍 PINECONE: Step 2 - Getting metadata from node")
           metadata = node.metadata
           print(f"🔍 PINECONE: Node metadata: {metadata}")
 
+          print(f"🔍 PINECONE: Step 3 - Extracting topic_id and chat_session_id")
           topic_id = metadata.get('topic_id')
           chat_session_id = metadata.get('chat_session_id')
           print(f"🔍 PINECONE: Extracted topic_id={topic_id}, chat_session_id={chat_session_id}")
 
+          print(f"🔍 PINECONE: Step 4 - Importing sync_to_async")
           from asgiref.sync import sync_to_async
           
+          print(f"🔍 PINECONE: Step 5 - Defining get_topic_and_logs function")
           @sync_to_async
           def get_topic_and_logs():
             try:
+              print(f"🔍 PINECONE: Step 5a - Getting topic from database")
               topic = Topic.objects.get(id=topic_id)
+              print(f"🔍 PINECONE: Step 5b - Getting logs from database")
               # Get logs by chat_session_id, not by log id
               logs = Log.objects.filter(chat_session_id=chat_session_id)
+              print(f"🔍 PINECONE: Step 5c - Counting logs")
               log_count = logs.count()  # Execute count query while in sync context
+              print(f"🔍 PINECONE: Step 5d - Getting topic name")
               topic_name = topic.name   # Access attribute while in sync context
               print(f"🔍 PINECONE: Found topic '{topic_name}' and {log_count} logs for session {chat_session_id}")
               return topic, logs, topic_name, log_count
@@ -384,15 +393,20 @@ class PineconeManager:
               print(f"🔍 PINECONE: Error getting topic/logs: {e}")
               return None, None, None, 0
 
+          print(f"🔍 PINECONE: Step 6 - Calling get_topic_and_logs async function")
           topic, session_logs, topic_name, log_count = await get_topic_and_logs()
+          print(f"🔍 PINECONE: Step 7 - get_topic_and_logs completed successfully")
 
+          print(f"🔍 PINECONE: Step 8 - Checking if topic exists")
           if not topic:
             print(f"🔍 PINECONE: No topic found for topic_id={topic_id}")
             continue
+          print(f"🔍 PINECONE: Step 9 - Checking if session_logs exists")
           if not session_logs:
             print(f"🔍 PINECONE: No logs found for chat_session_id={chat_session_id}")
             continue
 
+          print(f"🔍 PINECONE: Step 10 - Parsing date")
           # Parse date
           date_updated_value = metadata.get('date_updated')
           if date_updated_value:
@@ -406,6 +420,7 @@ class PineconeManager:
           else:
             date = datetime.now()
 
+          print(f"🔍 PINECONE: Step 11 - Creating LogState")
           # Create LogState for each log in the session (or just use the text from the node)
           # Since the node text contains the prepared text, we'll use that
           log_state = LogState(
@@ -416,8 +431,10 @@ class PineconeManager:
               chat_session_id=chat_session_id,
               confidence=node_with_score.score)  # Add confidence
 
+          print(f"🔍 PINECONE: Step 12 - Appending LogState to logs list")
           logs.append(log_state)
           print(f"🔍 PINECONE: Created LogState for topic '{topic_name}' with confidence {node_with_score.score:.3f}")
+          print(f"🔍 PINECONE: Step 13 - Successfully processed result {i+1}")
 
         except Exception as e:
           print(f"🔍 PINECONE: Error processing log result {i+1}: {str(e)}")
