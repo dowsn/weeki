@@ -70,8 +70,6 @@ class ConversationGraphManager:
   async def _topic_exploration_router(
       self, state: ConversationState) -> ConversationState:
 
-    # loading in the messages that the icon appears there and icon at the bottom disappears and it pulsates
-    # frontend after message please
 
     state.response_type = "topic"
 
@@ -149,7 +147,6 @@ class ConversationGraphManager:
     e enough information about the topic"""
     # Analyze collected responses
 
-    #here
 
     prompt = self.client.pull_prompt("create_topic_json")
 
@@ -248,7 +245,7 @@ class ConversationGraphManager:
     """Determine if we should explore topics based on state"""
     should_explore = state.potential_topic != ""
 
-    print("shold explore", should_explore)
+    print("should explore", should_explore)
     return should_explore
 
   async def _process_message(self, state: ConversationState):
@@ -268,7 +265,6 @@ class ConversationGraphManager:
 
     prompt = self.client.pull_prompt("chat_mr_week")
 
-    # if leave topic
     end_sentence = ""
     if state.topic_confirmation == 0:
       end_sentence = "\n\nCould you please let me know if we talk about some topic we discussed already or is this a new topic? And if then tell please more about it."

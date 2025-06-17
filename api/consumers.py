@@ -10,7 +10,6 @@ from django.utils import timezone
 from .serializers.chat_serializer import MessageSerializer
 from typing import List, Dict, Any
 from .services import get_chat_messages
-# also add upsert pinecone
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -67,7 +66,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
       await self.close(code=4002)
       return
     except Chat_Session.DoesNotExist:
-      print()
       await self.close(code=4003)
       return
     except Exception as e:
@@ -78,7 +76,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Accept the connection if everything is valid
     await self.accept()
     self.is_connected = True
-    # GIVE AWAY
 
     # Create the agent after accepting connection
 
@@ -116,24 +113,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     except Exception as e:
       print(f"Error sending connection status: {e}")
 
-  @database_sync_to_async
-  def get_latest_chat_session(self):
-    """Get the most recent chat session for the current user"""
-    try:
-      user = User.objects.get(id=self.user_id)
-      return Chat_Session.objects.filter(
-          user=user).order_by('-date_created').first()
-    except User.DoesNotExist:
-      return None
-
-  @database_sync_to_async
-  def create_new_chat_session(self):
-    """Create a new chat session for the current user"""
-    user = User.objects.get(id=self.user_id)
-    return Chat_Session.objects.create(
-        user=user,
-        title="New Conversation",  # Default title
-        is_active=True)
 
   async def disconnect(self, close_code):
     print(f"Disconnecting with code: {close_code}")
@@ -297,6 +276,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
     except Exception as e:
       print(f"Error processing message: {str(e)}")
       await self.send(text_data=json.dumps({'type': 'error', 'error': str(e)}))
+
+  async def handle_timeout(self):
+    """Handle automatic timeout - runs in WebSocket context, not monitoring task"""
+    print("Handling automatic timeout in WebSocket context")
+    
+    # This now runs outside the monitoring task, so no cancellation issues
+    await self.handle_close(complete=True)
 
   async def handle_close(self, complete: bool, message=""):
     """Simplified close handling with proper time manager cleanup"""

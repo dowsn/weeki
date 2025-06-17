@@ -109,29 +109,3 @@ class ConversationHelper:
     )
     return {field: "" for field in response_type.__annotations__.keys()}
 
-  def _extract_messages(self, prompt: str) -> tuple:
-    """Extract system and user messages from a combined prompt."""
-    # Simple implementation - you may need to adjust based on your prompt format
-    lines = prompt.split('\n')
-    system_lines = []
-    user_lines = []
-
-    in_system = True
-    for line in lines:
-      if '<query>' in line.lower():
-        in_system = False
-
-      if in_system:
-        system_lines.append(line)
-      else:
-        user_lines.append(line)
-
-    system_message = '\n'.join(system_lines)
-    user_message = '\n'.join(user_lines)
-
-    # If we couldn't split properly, use a default system message
-    if not system_message:
-      system_message = "Extract the required information in JSON format."
-      user_message = prompt
-
-    return system_message, user_message

@@ -149,17 +149,6 @@ class ConversationState(BaseModel):
 
     return self
 
-  # def prepare_prompt_topic(self):
-
-  #   # For first-time entry to topic exploration, use saved_query
-  #   # For subsequent interactions within topic exploration, use current_message
-  #   if self.saved_query and self.current_message == self.saved_query:
-  #     self.prompt_query = self.saved_query
-  #   else:
-  #     self.prompt_query = self.current_message
-
-  # Don't use conversation history in topic mode
-  # self.prompt_conversation_history = ""
 
   def prepare_topics_to_prompt(self):
     self.prompt_topics = ""
@@ -192,92 +181,6 @@ class ConversationState(BaseModel):
     # Note we're using only_query=False to get both query and history
     self.split_messages(window_size=10000)
 
-  # def get_short_conversation_context(self):
-  #   """
-  #   Gets a shortened version of the conversation context.
-  #   Improved to correctly handle multi-line messages and remove topic exploration loops.
-  #   """
-  #   if self.messages is None:
-  #     return ""
-
-  #   # Parse the conversation into complete messages
-  #   messages = []
-  #   current_content = []
-  #   current_speaker = None
-
-  #   for message in self.messages:
-  #     line = line.strip()
-  #     if not line:
-  #       continue
-
-  #     if line.startswith('Human:') or line.startswith('Assistant:'):
-  #       # If we were building a message, complete it
-  #       if current_speaker and current_content:
-  #         messages.append({
-  #             "role":
-  #             current_speaker,
-  #             "content":
-  #             ' '.join(current_content).replace('***', '')
-  #         })
-  #         current_content = []
-
-  #       # Start new message
-  #       current_speaker = "Human" if line.startswith('Human:') else "Assistant"
-  #       content = line[len(current_speaker) + 1:].replace('***', '').strip()
-  #       if content:
-  #         current_content.append(content)
-  #     else:
-  #       # Continue building the current message
-  #       current_content.append(line)
-
-  #   # Add the last message
-  #   if current_speaker and current_content:
-  #     messages.append({
-  #         "role": current_speaker,
-  #         "content": ' '.join(current_content).replace('***', '')
-  #     })
-
-  #   # Filter out topic exploration loops
-  #   filtered_messages = []
-  #   in_exploration_loop = False
-  #   exploration_marker = "Do you want to explore this topic further? Do you want to save it? Or do you want to leave the exploration of the topic and go on with the conversation"
-
-  #   for message in messages:
-  #     if exploration_marker in message["content"]:
-  #       # If we encounter an exploration marker, toggle the state
-  #       in_exploration_loop = not in_exploration_loop
-  #       # Skip this message (don't add it to filtered messages)
-  #       continue
-
-  #     if not in_exploration_loop:
-  #       # Only keep messages that are not part of a topic exploration loop
-  #       filtered_messages.append(message)
-
-  #   # Now process messages for short context
-  #   formatted_messages = []
-  #   total_chars = 0
-  #   max_chars = 1000
-
-  #   # Process messages from newest to oldest (using the filtered list)
-  #   for message in reversed(filtered_messages):
-  #     full_formatted_message = f"{message['role']}: {message['content']}"
-  #     message_size = len(full_formatted_message)
-
-  #     # Only add if we won't exceed character limit
-  #     if total_chars + message_size <= max_chars:
-  #       formatted_messages.append(full_formatted_message)
-  #       total_chars += message_size
-  #     else:
-  #       # We've reached the character limit
-  #       break
-
-  #   # Reverse to get chronological order
-  #   formatted_messages = list(reversed(formatted_messages))
-
-  #   self.prompt_short_conversation_context = ' '.join(formatted_messages)
-
-  #   if self.prompt_short_conversation_context:
-  #     self.prompt_short_conversation_context = f"<history>{self.prompt_short_conversation_context}</history>"
 
   def add_message(self, message: str):
     # self.conversation_context += f"Human: {message}\n"
@@ -316,7 +219,7 @@ class ConversationState(BaseModel):
 
     # The embedding model's interface might be different from what you expected
     # Most embedding models have either embed_query or get_text_embedding method
-    embedding_text = ""  # Fixed typo: was "emebedding_text"
+    embedding_text = ""
     if self.saved_query:
       embedding_text = self.saved_query
     else:
@@ -327,7 +230,7 @@ class ConversationState(BaseModel):
     print(f"🔧 DEBUG: embedding_text is empty? {embedding_text == ''}")
 
     embedding = []
-    if embedding_text:  # Fixed typo: was "emebedding_text"
+    if embedding_text:
       print("🔧 DEBUG: About to call embedding model...")
       if hasattr(embedding_model, 'embed_query'):
         embedding = embedding_model.embed_query(embedding_text)

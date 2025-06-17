@@ -190,10 +190,6 @@ class SessionManager:
       self.prompt_topics += f"description:{topic['text']}\n"  # ✅ Use dictionary key access
       self.prompt_topics += "\n"
 
-    #go through state and generate strings for prompt before update actually
-
-    # give new topics and whole history and generate logs
-    # those are topics and this is conversation for each topic create summary in format array [topic id, topic_name, and summary]
 
   async def handle_state_end(self):
     """
@@ -409,6 +405,10 @@ class SessionManager:
       # Add summary if available
       if hasattr(self, 'summary') and self.summary:
         response_text += f'\n\n{self.summary}'
+
+      # Add future conversation information for first-time users
+      if self.chat_session.first:
+        response_text += "\n\nYour future conversations will be able to retrieve your topics and summaries from this and following conversations. You can also view them in your Moments and your profile on Focusboard"
 
       return response_text
 

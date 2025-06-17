@@ -46,7 +46,6 @@ class TopicManager:
 
     return topic
 
-  # where is this called
   async def check_topics(self, state: ConversationState) -> ConversationState:
     state.current_topics = []
     matched_topics = []

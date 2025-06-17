@@ -22,8 +22,6 @@ class LogManager:
       if state.embedding:
           print("🔍 LOG_MANAGER: Searching for logs with time-boosted scoring")
 
-          # First, let's check if any logs exist in the database at all
-          await self._debug_database_logs()
 
           # Use the same parameters as topics for consistency
           new_logs = await self.pinecone_manager.retrieve_logs(
@@ -43,23 +41,6 @@ class LogManager:
 
       return state
 
-  async def _debug_database_logs(self):
-      """Debug method to check what logs exist in the database"""
-      @database_sync_to_async
-      def check_logs():
-          total_logs = Log.objects.count()
-          user_logs = Log.objects.filter(user_id=self.pinecone_manager.user_id).count()
-          recent_logs = Log.objects.filter(user_id=self.pinecone_manager.user_id).order_by('-id')[:5]
-          
-          print(f"🔍 DB_DEBUG: Total logs in database: {total_logs}")
-          print(f"🔍 DB_DEBUG: Logs for user {self.pinecone_manager.user_id}: {user_logs}")
-          
-          for i, log in enumerate(recent_logs):
-              print(f"🔍 DB_DEBUG: Recent log {i+1}: session={log.chat_session_id}, topic={log.topic_id}, text='{log.text[:50]}...'")
-          
-          return total_logs, user_logs
-
-      await check_logs()
 
   async def get_session_logs(self,
                            session_id: int,

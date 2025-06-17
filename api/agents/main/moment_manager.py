@@ -54,8 +54,6 @@ class MomentManager:
 
     self.graph: ConversationGraphManager = self._setup_graph()
 
-    # import asyncio
-    # asyncio.create_task(self.test_ai_model())
 
   def _initialize_state(self) -> ConversationState:
 
@@ -80,53 +78,6 @@ class MomentManager:
         log_manager=self.log_manager,
         conversation_helper=self.converstation_helper).graph
 
-  # async def load_topics_and_logs(self):
-  #   """
-  #   Load all types of topics from database into state using the new
-  #   association models for better data organization and retrieval
-  #   """
-  #   # Load active topics list for new sessions
-  #   if len(self.messages) == 0:
-
-  #     @database_sync_to_async
-  #     def get_active_topics():
-  #       return list(
-  #           Topic.objects.filter(user=self.user,
-  #                                date_updated__gte=datetime.now() -
-  #                                timedelta(days=90),
-  #                                active=True).values_list('name', flat=True))
-
-  #     topics_list = await get_active_topics()
-  #     self.state.active_topics = ", ".join(topics_list)
-
-  #   # Load cached topics (status=1) using topic manager
-  #   self.state.cached_topics = await self.topic_manager.get_session_topics(
-  #       session_id=self.chat_session.id,
-  #       status=1  # Cache status
-  #   )
-
-  #   # Load current topics (status=2) using topic manager
-  #   self.state.current_topics = await self.topic_manager.get_session_topics(
-  #       session_id=self.chat_session.id,
-  #       status=2  # Current status
-  #   )
-
-  #   # Load logs using log manager
-  #   self.state.cached_logs = await self.log_manager.get_session_logs(
-  #       session_id=self.chat_session.id,
-  #       status=1  # Cache status
-  #   )
-
-  #   self.state.current_logs = await self.log_manager.get_session_logs(
-  #       session_id=self.chat_session.id,
-  #       status=2  # Cache status
-  #   )
-
-  #   # Load potential topic from session
-  #
-
-  #   # Load chars since check
-  #   self.state.chars_since_check = self.chat_session.chars_since_check
 
   async def test_ai_model(self):
     """
@@ -188,18 +139,6 @@ class MomentManager:
       traceback.print_exc()
       return False
 
-  # def _format_message_history(self) -> str:
-
-  #   last_role = None
-  #   formatted = ""
-  #   for msg in self.messages:
-  #     role = 'Human' if msg.role == 'user' else 'Assistant'
-  #     if last_role == role:
-  #       formatted += f"{msg.content}\n"
-  #     else:
-  #       formatted += f"{role}: {msg.content}\n"
-  #     last_role = role
-  #   return formatted
 
   async def load_messages(self):
     """Load messages from the database and populate state.messages list"""
@@ -293,57 +232,11 @@ class MomentManager:
       print("DEBUG: Stopping time manager from moment_manager timeout")
       self.time_manager.stop_monitoring()
       
-      try:
-        # Send processing_end signal to frontend (like handle_close does)
-        if self.ws_consumer.is_connected:
-          await self.ws_consumer.send(text_data=json.dumps({
-              'type': 'processing_end',
-              'text': '',
-              'topics': ''
-          }))
-        
-        # Generate the end message with full state processing (including summary)
-        print("DEBUG: Calling handle_state_end for timeout summary generation")
-        try:
-          await self.session_manager.handle_state_end()
-          print("DEBUG: handle_state_end completed successfully")
-        except Exception as state_error:
-          print(f"ERROR: handle_state_end failed: {state_error}")
-          print("DEBUG: Continuing with handle_end without summary")
-        
-        print("DEBUG: Generating timeout message")
-        timeout_message = await self.session_manager.handle_end()
-        
-        # Stream it directly to the user
-        if timeout_message and self.ws_consumer.is_connected:
-          print("DEBUG: Streaming timeout message")
-          try:
-            await self.ws_consumer.stream_tokens(
-                timeout_message,
-                message_type="automatic_message",
-                skip_new_message=True
-            )
-            print("DEBUG: Timeout message streaming completed")
-          except Exception as stream_error:
-            print(f"ERROR: Failed to stream timeout message: {stream_error}")
-        else:
-          print(f"DEBUG: Cannot stream - timeout_message={bool(timeout_message)}, connected={self.ws_consumer.is_connected if hasattr(self, 'ws_consumer') else 'no_consumer'}")
-        
-        # Save session state after message (like handle_close does for complete=True)
-        print("DEBUG: Saving session state after timeout message")
-        try:
-          await self.ws_consumer.agent.save_session_state(True)
-          print("DEBUG: Session state saved successfully after timeout")
-        except Exception as e:
-          print(f"ERROR: Failed to save session state after timeout: {e}")
-        
-        # Now close the connection
-        if self.ws_consumer.is_connected:
-          print("DEBUG: Closing WebSocket after timeout message")
-          await self.ws_consumer.close(code=4000)
-          
-      except Exception as e:
-        print(f"Error in automatic end handler: {e}")
+      # Instead of handling everything here, just notify the WebSocket
+      if self.ws_consumer and self.ws_consumer.is_connected:
+        print("DEBUG: Scheduling timeout handling in WebSocket context")
+        # Schedule the timeout handling in the WebSocket's event loop
+        asyncio.create_task(self.ws_consumer.handle_timeout())
 
   def is_session_ended(self):
     """Check if session ended due to time"""
