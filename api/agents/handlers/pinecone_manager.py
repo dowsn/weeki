@@ -380,30 +380,21 @@ class PineconeManager:
             try:
               print(f"🔍 PINECONE: Step 5a - Getting topic from database")
               topic = Topic.objects.get(id=topic_id)
-              print(f"🔍 PINECONE: Step 5b - Getting logs from database")
-              # Get logs by chat_session_id, not by log id
-              logs = Log.objects.filter(chat_session_id=chat_session_id)
-              print(f"🔍 PINECONE: Step 5c - Counting logs")
-              log_count = logs.count()  # Execute count query while in sync context
-              print(f"🔍 PINECONE: Step 5d - Getting topic name")
+              print(f"🔍 PINECONE: Step 5b - Getting topic name")
               topic_name = topic.name   # Access attribute while in sync context
-              print(f"🔍 PINECONE: Found topic '{topic_name}' and {log_count} logs for session {chat_session_id}")
-              return topic, logs, topic_name, log_count
+              print(f"🔍 PINECONE: Found topic '{topic_name}' for session {chat_session_id}")
+              return topic, topic_name
             except (Topic.DoesNotExist, AttributeError) as e:
-              print(f"🔍 PINECONE: Error getting topic/logs: {e}")
-              return None, None, None, 0
+              print(f"🔍 PINECONE: Error getting topic: {e}")
+              return None, None
 
           print(f"🔍 PINECONE: Step 6 - Calling get_topic_and_logs async function")
-          topic, session_logs, topic_name, log_count = await get_topic_and_logs()
+          topic, topic_name = await get_topic_and_logs()
           print(f"🔍 PINECONE: Step 7 - get_topic_and_logs completed successfully")
 
           print(f"🔍 PINECONE: Step 8 - Checking if topic exists")
           if not topic:
             print(f"🔍 PINECONE: No topic found for topic_id={topic_id}")
-            continue
-          print(f"🔍 PINECONE: Step 9 - Checking if session_logs exists")
-          if not session_logs:
-            print(f"🔍 PINECONE: No logs found for chat_session_id={chat_session_id}")
             continue
 
           print(f"🔍 PINECONE: Step 10 - Parsing date")
