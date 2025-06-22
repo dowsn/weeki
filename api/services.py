@@ -8,8 +8,6 @@ from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import date
 from rest_framework.response import Response
-import requests
-import boto3
 import json
 import re
 from typing import Tuple

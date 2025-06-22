@@ -1,5 +1,4 @@
 from typing import Dict, Any, List
-from langchain_xai import ChatXAI
 from langchain import hub
 from pydantic import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
@@ -190,7 +189,6 @@ class SessionManager:
       self.prompt_topics += f"description:{topic['text']}\n"  # ✅ Use dictionary key access
       self.prompt_topics += "\n"
 
-
   async def handle_state_end(self):
     """
     Handle the end of a session, processing topics and logs using association models.
@@ -290,8 +288,10 @@ class SessionManager:
     async def process_logs_for_topics():
       print("Processing logs for topics")
       logs_prompt = self.prompts["process_logs"].invoke({
-          "topics": self.topics,
-          "chat_history": chat_history
+          "topics":
+          self.topics,
+          "chat_history":
+          chat_history
       })
 
       log_response = await self.conversation_helper.run_until_json(
@@ -305,44 +305,40 @@ class SessionManager:
 
       # Loop through each log entry
       for log_entry in logs_data:
-          log_text = log_entry["text"]
-          topic_id = log_entry["topic_id"]
-          topic_name = log_entry["topic_name"]
+        log_text = log_entry["text"]
+        topic_id = log_entry["topic_id"]
+        topic_name = log_entry["topic_name"]
 
-          print(f"Processing log for topic {topic_id}: {topic_name}")
+        print(f"Processing log for topic {topic_id}: {topic_name}")
 
-          # Create log in database
-          @database_sync_to_async
-          def create_log_in_db():
-              return Log.objects.create(
-                  user_id=self.state.user_id,
-                  chat_session=self.chat_session,
-                  topic_id=topic_id,
-                  text=log_text
-              )
+        # Create log in database
+        @database_sync_to_async
+        def create_log_in_db():
+          return Log.objects.create(user_id=self.state.user_id,
+                                    chat_session=self.chat_session,
+                                    topic_id=topic_id,
+                                    text=log_text)
 
-          # Update log in pinecone
-          async def update_log_vector():
-              log_for_pinecone = LogState(
-                  topic_id=topic_id,
-                  text=log_text,
-                  topic_name=topic_name,
-                  chat_session_id=self.chat_session.id
-              )
-              await self.pinecone_manager.upsert_log(log_for_pinecone)
-              print(f"Updated log vector for topic {topic_id}")
+        # Update log in pinecone
+        async def update_log_vector():
+          log_for_pinecone = LogState(topic_id=topic_id,
+                                      text=log_text,
+                                      topic_name=topic_name,
+                                      chat_session_id=self.chat_session.id)
+          await self.pinecone_manager.upsert_log(log_for_pinecone)
+          print(f"Updated log vector for topic {topic_id}")
 
-          # Execute database and vector operations for this log
-          new_log = await create_log_in_db()
-          print(f"New log created in db for topic {topic_id}")
-          await update_log_vector()
+        # Execute database and vector operations for this log
+        new_log = await create_log_in_db()
+        print(f"New log created in db for topic {topic_id}")
+        await update_log_vector()
 
-          # Store the processed log info
-          processed_logs.append({
-              "topic_id": topic_id,
-              "topic_name": topic_name,
-              "log_text": log_text
-          })
+        # Store the processed log info
+        processed_logs.append({
+            "topic_id": topic_id,
+            "topic_name": topic_name,
+            "log_text": log_text
+        })
 
       return processed_logs  # Return all processed logs
 
@@ -355,7 +351,7 @@ class SessionManager:
       for log_entry in topic_logs:
         topic_name = log_entry["topic_name"]
         log_text = log_entry["log_text"]
-        summary_parts.append(f"{topic_name}: {log_text}")
+        summary_parts.append(f"{topic_name}:\n{log_text}")
 
       summary = "\n\n".join(summary_parts)
 

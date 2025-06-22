@@ -34,4 +34,11 @@ urlpatterns = [
     path('topics', views.TopicsView.as_view(), name='topics'),
     path('dashboard', views.DashboardView.as_view(), name='dashboard'),
     path('login', views.LoginAPIView.as_view(), name='login'),
+    path('google-play-webhook/',
+         views.google_play_webhook,
+         name='google_play_webhook'),
+    # Optional: for purchase initiation (requires auth)
+    path('initiate-purchase/',
+         views.initiate_purchase,
+         name='initiate_purchase'),
 ]

@@ -1,4 +1,3 @@
-import anthropic
 from django.http import JsonResponse
 from app.models import Chat_Session, Weeki, Week, Profile, Topic, User, Year, Summary, Message, PasswordResetToken, ProfileActivationToken
 from smtplib import SMTPException
@@ -25,7 +24,6 @@ from django.core.exceptions import ValidationError
 
 from django.conf import settings
 from .security.utils import TokenManager
-from anthropic import Anthropic
 from rest_framework.permissions import AllowAny
 from .serializers.user_serializer import UserSerializer
 from .serializers.topic_serializer import TopicSerializer
@@ -70,7 +68,6 @@ import logging
 
 from app.models import Conversation_Session, Conversation
 from .serializers.chat_serializer import MessageSerializer
-from .utilities.anthropic import AnthropicAPIUtility
 from rest_framework.authtoken.models import Token
 
 from channels.generic.http import AsyncHttpConsumer
