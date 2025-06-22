@@ -3,6 +3,14 @@ from django.http import JsonResponse
 from app.models import Chat_Session, Weeki, Week, Profile, Topic, User, Year, Summary, Message, PasswordResetToken, ProfileActivationToken
 from smtplib import SMTPException
 import time
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import json
+import base64
+import logging
+import hmac
+import hashlib
+from app.models import Profile, GooglePlaySubscription  # Import your models
 
 from django.utils import timezone
 from api.utilities.regex import clean_content
@@ -12,7 +20,6 @@ import secrets
 
 from django.db.models.functions import TruncDate
 
-import json
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
@@ -23,6 +30,9 @@ from rest_framework.permissions import AllowAny
 from .serializers.user_serializer import UserSerializer
 from .serializers.topic_serializer import TopicSerializer
 from .serializers.chat_session_serializer import Chat_SessionSerializer
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 from datetime import date, timedelta, datetime
 from django.core.cache import cache
@@ -1263,3 +1273,234 @@ class LoginAPIView(APIView):
     """Clear failed attempts after successful login"""
     cache_key = f"login_attempts_{username}"
     cache.delete(cache_key)
+
+  @csrf_exempt
+  @require_POST
+  def google_play_webhook(request):
+      try:
+          # Security check: Verify the request comes from Google
+          if not verify_google_signature(request):
+              logger.warning("Invalid Google signature")
+              return HttpResponse('Unauthorized', status=401)
+
+          # Parse the Pub/Sub message
+          data = json.loads(request.body)
+          message = data.get('message', {})
+
+          if not message:
+              return HttpResponse('No message', status=400)
+
+          # Decode the notification data
+          notification_data = json.loads(
+              base64.b64decode(message['data']).decode('utf-8')
+          )
+
+          logger.info(f"Received notification: {notification_data}")
+
+          # Handle subscription notification
+          if 'subscriptionNotification' in notification_data:
+              handle_subscription_notification(notification_data['subscriptionNotification'])
+
+          return HttpResponse('OK', status=200)
+
+      except Exception as e:
+          logger.error(f"Webhook error: {str(e)}")
+          return HttpResponse('Error', status=500)
+
+  def verify_google_signature(request):
+      """Verify that the request comes from Google using signature verification"""
+      try:
+          # Get the signature from headers
+          signature = request.META.get('HTTP_X_GOOG_SIGNATURE')
+          if not signature:
+              return False
+
+          # Get the verification token from settings
+          verification_token = getattr(settings, 'GOOGLE_PUBSUB_VERIFICATION_TOKEN', '')
+          if not verification_token:
+              logger.error("GOOGLE_PUBSUB_VERIFICATION_TOKEN not set in settings")
+              return False
+
+          # Calculate expected signature
+          expected_signature = base64.b64encode(
+              hmac.new(
+                  verification_token.encode('utf-8'),
+                  request.body,
+                  hashlib.sha1
+              ).digest()
+          ).decode('utf-8')
+
+          # Compare signatures
+          return hmac.compare_digest(signature, expected_signature)
+
+      except Exception as e:
+          logger.error(f"Signature verification error: {str(e)}")
+          return False
+
+  def handle_subscription_notification(subscription_data):
+      """Handle different types of subscription notifications"""
+      purchase_token = subscription_data['purchaseToken']
+      notification_type = subscription_data['notificationType']
+      subscription_id = subscription_data['subscriptionId']
+
+      logger.info(f"Handling notification type {notification_type} for subscription {subscription_id}")
+
+      # Notification types:
+      # 1 = SUBSCRIPTION_RECOVERED
+      # 2 = SUBSCRIPTION_RENEWED
+      # 3 = SUBSCRIPTION_CANCELED
+      # 4 = SUBSCRIPTION_PURCHASED
+      # 12 = SUBSCRIPTION_REVOKED
+      # 13 = SUBSCRIPTION_PAUSED
+
+      try:
+          if notification_type in [1, 2, 4]:  # Purchased, renewed, or recovered
+              handle_subscription_active(purchase_token, subscription_id)
+          elif notification_type in [3, 12]:  # Canceled or revoked
+              handle_subscription_canceled(purchase_token)
+          elif notification_type == 13:  # Paused
+              handle_subscription_paused(purchase_token)
+
+      except Exception as e:
+          logger.error(f"Error handling notification type {notification_type}: {str(e)}")
+
+  def handle_subscription_active(purchase_token, subscription_id):
+      """Handle active subscription (new, renewed, or recovered)"""
+
+      # Verify the purchase with Google Play API
+      subscription_info = verify_subscription_with_google(purchase_token, subscription_id)
+
+      if not subscription_info:
+          logger.error(f"Could not verify subscription: {purchase_token}")
+          return
+
+      # Get or find the user for this subscription
+      user = get_user_from_purchase_token(purchase_token)
+      if not user:
+          logger.error(f"Could not find user for purchase token: {purchase_token}")
+          return
+
+      # Get or create subscription record
+      subscription, created = GooglePlaySubscription.objects.get_or_create(
+          purchase_token=purchase_token,
+          defaults={
+              'user': user,
+              'subscription_id': subscription_id,
+              'product_id': subscription_info.get('productId', ''),
+              'expiry_time_millis': int(subscription_info['expiryTimeMillis']),
+              'auto_renewing': subscription_info.get('autoRenewing', True),
+              'order_id': subscription_info.get('orderId', '')
+          }
+      )
+
+      # Update subscription info if it exists
+      if not created:
+          subscription.expiry_time_millis = int(subscription_info['expiryTimeMillis'])
+          subscription.auto_renewing = subscription_info.get('autoRenewing', True)
+          subscription.order_id = subscription_info.get('orderId', '')
+          subscription.save()
+
+      # Update user profile
+      profile, profile_created = Profile.objects.get_or_create(user=user)
+
+      # Add 4 tokens
+      profile.add_tokens(4)
+
+      # Set subscription_date to match Google Play expiry (convert to date)
+      profile.subscription_date = subscription.expiry_date
+      profile.save()
+
+      logger.info(f"Subscription processed for user {user.id}: +4 tokens, expires {subscription.expiry_date}")
+
+  def handle_subscription_canceled(purchase_token):
+      """Handle canceled subscription"""
+      try:
+          subscription = GooglePlaySubscription.objects.get(purchase_token=purchase_token)
+
+          # Mark as not auto-renewing
+          subscription.auto_renewing = False
+          subscription.save()
+
+          logger.info(f"Subscription canceled for user {subscription.user.id}")
+
+      except GooglePlaySubscription.DoesNotExist:
+          logger.error(f"Could not find subscription for token: {purchase_token}")
+
+  def handle_subscription_paused(purchase_token):
+      """Handle paused subscription"""
+      try:
+          subscription = GooglePlaySubscription.objects.get(purchase_token=purchase_token)
+
+          # Mark as not auto-renewing while paused
+          subscription.auto_renewing = False
+          subscription.save()
+
+          logger.info(f"Subscription paused for user {subscription.user.id}")
+
+      except GooglePlaySubscription.DoesNotExist:
+          logger.error(f"Could not find subscription for token: {purchase_token}")
+
+  def verify_subscription_with_google(purchase_token, subscription_id):
+      """Verify subscription with Google Play Developer API"""
+      try:
+          # Load service account credentials
+          credentials = service_account.Credentials.from_service_account_file(
+              settings.GOOGLE_SERVICE_ACCOUNT_FILE,
+              scopes=['https://www.googleapis.com/auth/androidpublisher']
+          )
+
+          # Build the API service
+          service = build('androidpublisher', 'v3', credentials=credentials)
+
+          # Make the API call to verify subscription
+          result = service.purchases().subscriptions().get(
+              packageName=settings.GOOGLE_PLAY_PACKAGE_NAME,
+              subscriptionId=subscription_id,
+              token=purchase_token
+          ).execute()
+
+          return result
+
+      except Exception as e:
+          logger.error(f"Error verifying subscription with Google: {str(e)}")
+          return None
+
+  def get_user_from_purchase_token(purchase_token):
+      """Get user associated with this purchase token"""
+      try:
+          # First try to find existing subscription
+          subscription = GooglePlaySubscription.objects.get(purchase_token=purchase_token)
+          return subscription.user
+      except GooglePlaySubscription.DoesNotExist:
+          # For new subscriptions, you'll need to implement a way to link
+          # the purchase_token to a user. This could be done by:
+          # 1. Storing a mapping when the purchase is initiated in your app
+          # 2. Using a separate model to track pending purchases
+          # 3. Including user info in the purchase token itself
+
+          # For now, return None - you need to implement this based on your app flow
+          logger.error(f"No user mapping found for new purchase token: {purchase_token}")
+          return None
+
+  # Optional: View to handle purchase initiation from your app
+  @csrf_exempt
+  @require_POST
+  def initiate_purchase(request):
+      """Call this from your app when user starts a purchase"""
+      try:
+          data = json.loads(request.body)
+          user_id = data.get('user_id')
+          purchase_token = data.get('purchase_token')
+
+          if user_id and purchase_token:
+              # Store the mapping for later use
+              user = User.objects.get(id=user_id)
+              # You might want to create a temporary mapping here
+              # or store it in a cache/session
+
+              return HttpResponse('OK', status=200)
+
+      except Exception as e:
+          logger.error(f"Error in initiate_purchase: {str(e)}")
+
+      return HttpResponse('Error', status=400)

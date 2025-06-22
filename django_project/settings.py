@@ -60,7 +60,11 @@ INSTALLED_APPS = [
     'app.apps.AppConfig',
     'api.apps.ApiConfig',
     'accounts.apps.AccountsConfig',
-    'payments'
+    'payments',
+    'google-api-python-client',
+    'google-auth',
+    'google-auth-oauthlib',
+    'google-auth-httplib2',
 ]
 
 # Middleware
