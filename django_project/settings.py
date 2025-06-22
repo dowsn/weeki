@@ -61,10 +61,7 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'accounts.apps.AccountsConfig',
     'payments',
-    'google-api-python-client',
-    'google-auth',
-    'google-auth-oauthlib',
-    'google-auth-httplib2',
+
 ]
 
 # Middleware
@@ -319,5 +316,9 @@ PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY', '')
 PINECONE_INDEX_NAME = os.environ.get('PINECONE_INDEX_NAME', '')
 PINECONE_ENVIRONMENT = os.environ.get('PINECONE_ENVIRONMENT', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE')
+GOOGLE_PLAY_PACKAGE_NAME = os.environ.get('GOOGLE_PLAY_PACKAGE_NAME')
+GOOGLE_PUBSUB_VERIFICATION_TOKEN = os.environ.get('GOOGLE_PUBSUB_VERIFICATION_TOKEN')
 
 SHOW_ADMIN_DATA = not PRODUCTION
