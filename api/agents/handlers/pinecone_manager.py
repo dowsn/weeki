@@ -1,22 +1,18 @@
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
-from langchain_community.vectorstores import Pinecone
+from typing import List, Optional
+from datetime import datetime
 from django.conf import settings
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from langchain_pinecone import PineconeEmbeddings
-from api.agents.models.conversation_models import ConversationState
 from api.agents.models.conversation_models import TopicState, LogState
 import re
-import string
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
-from app.models import Topic, Log
+from app.models import Topic
 
 # LlamaIndex imports
 from llama_index.core import StorageContext, VectorStoreIndex
-from llama_index.core.schema import Document, NodeWithScore, TextNode
+from llama_index.core.schema import NodeWithScore, TextNode
 from llama_index.vector_stores.pinecone import PineconeVectorStore
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core.retrievers import BaseRetriever
@@ -115,21 +111,27 @@ class PineconeManager:
 
       # Execute query
       query_result = self.vector_store.query(vector_store_query)
-      print(f"🔧 RETRIEVER: Found {len(query_result.nodes)} raw results from vector store")
-      print(f"🔧 RETRIEVER: Vector store namespace: {getattr(self.vector_store, 'namespace', 'unknown')}")
+      print(
+          f"🔧 RETRIEVER: Found {len(query_result.nodes)} raw results from vector store"
+      )
+      print(
+          f"🔧 RETRIEVER: Vector store namespace: {getattr(self.vector_store, 'namespace', 'unknown')}"
+      )
       print(f"🔧 RETRIEVER: Query filters: user_id={self.user_id}")
 
       # Debug: Check what attributes are available on query_result
       print(f"🔧 DEBUG: query_result type: {type(query_result)}")
       print(f"🔧 DEBUG: query_result attributes: {dir(query_result)}")
       if hasattr(query_result, 'similarities'):
-        print(f"🔧 DEBUG: query_result.similarities: {query_result.similarities}")
+        print(
+            f"🔧 DEBUG: query_result.similarities: {query_result.similarities}")
       if hasattr(query_result, 'scores'):
         print(f"🔧 DEBUG: query_result.scores: {query_result.scores}")
 
       # Convert TextNode results to NodeWithScore using scores from query_result
       node_with_scores = []
-      if hasattr(query_result, 'nodes') and hasattr(query_result, 'similarities'):
+      if hasattr(query_result, 'nodes') and hasattr(query_result,
+                                                    'similarities'):
         # If we have both nodes and similarities, create NodeWithScore objects
         print("🔧 DEBUG: Using nodes and similarities")
         for i, node in enumerate(query_result.nodes):
@@ -272,13 +274,14 @@ class PineconeManager:
 
           try:
             topic_id = int(topic_id)
-            
+
             # Use sync_to_async for Django ORM call
             from asgiref.sync import sync_to_async
+
             @sync_to_async
             def get_topic():
               return Topic.objects.get(id=topic_id)
-            
+
             topic = await get_topic()
           except (ValueError, TypeError, Topic.DoesNotExist) as e:
             logger.warning(f"Invalid topic_id or topic not found: {topic_id}")
@@ -332,8 +335,10 @@ class PineconeManager:
     """
     print(f"🔍 PINECONE: Starting retrieve_logs for user_id={self.user_id}")
     print(f"🔍 PINECONE: Embedding length: {len(embedding)}")
-    print(f"🔍 PINECONE: Thresholds - base: {base_threshold}, final: {final_threshold}")
-    
+    print(
+        f"🔍 PINECONE: Thresholds - base: {base_threshold}, final: {final_threshold}"
+    )
+
     try:
       # Create retriever with time BOOST functions (not decay)
       retriever = self.TimeDecayRetriever(
@@ -366,31 +371,41 @@ class PineconeManager:
           metadata = node.metadata
           print(f"🔍 PINECONE: Node metadata: {metadata}")
 
-          print(f"🔍 PINECONE: Step 3 - Extracting topic_id and chat_session_id")
+          print(
+              f"🔍 PINECONE: Step 3 - Extracting topic_id and chat_session_id")
           topic_id = metadata.get('topic_id')
           chat_session_id = metadata.get('chat_session_id')
-          print(f"🔍 PINECONE: Extracted topic_id={topic_id}, chat_session_id={chat_session_id}")
+          print(
+              f"🔍 PINECONE: Extracted topic_id={topic_id}, chat_session_id={chat_session_id}"
+          )
 
           print(f"🔍 PINECONE: Step 4 - Importing sync_to_async")
           from asgiref.sync import sync_to_async
-          
+
           print(f"🔍 PINECONE: Step 5 - Defining get_topic_and_logs function")
+
           @sync_to_async
           def get_topic_and_logs():
             try:
               print(f"🔍 PINECONE: Step 5a - Getting topic from database")
               topic = Topic.objects.get(id=topic_id)
               print(f"🔍 PINECONE: Step 5b - Getting topic name")
-              topic_name = topic.name   # Access attribute while in sync context
-              print(f"🔍 PINECONE: Found topic '{topic_name}' for session {chat_session_id}")
+              topic_name = topic.name  # Access attribute while in sync context
+              print(
+                  f"🔍 PINECONE: Found topic '{topic_name}' for session {chat_session_id}"
+              )
               return topic, topic_name
             except (Topic.DoesNotExist, AttributeError) as e:
               print(f"🔍 PINECONE: Error getting topic: {e}")
               return None, None
 
-          print(f"🔍 PINECONE: Step 6 - Calling get_topic_and_logs async function")
+          print(
+              f"🔍 PINECONE: Step 6 - Calling get_topic_and_logs async function"
+          )
           topic, topic_name = await get_topic_and_logs()
-          print(f"🔍 PINECONE: Step 7 - get_topic_and_logs completed successfully")
+          print(
+              f"🔍 PINECONE: Step 7 - get_topic_and_logs completed successfully"
+          )
 
           print(f"🔍 PINECONE: Step 8 - Checking if topic exists")
           if not topic:
@@ -424,7 +439,9 @@ class PineconeManager:
 
           print(f"🔍 PINECONE: Step 12 - Appending LogState to logs list")
           logs.append(log_state)
-          print(f"🔍 PINECONE: Created LogState for topic '{topic_name}' with confidence {node_with_score.score:.3f}")
+          print(
+              f"🔍 PINECONE: Created LogState for topic '{topic_name}' with confidence {node_with_score.score:.3f}"
+          )
           print(f"🔍 PINECONE: Step 13 - Successfully processed result {i+1}")
 
         except Exception as e:
