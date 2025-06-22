@@ -29,6 +29,7 @@ class SecurityMiddleware(MiddlewareMixin):
         '/api/send_activation_code',
         '/api/activate_profile',
         '/api/reset_password',
+        '/api/google-play-webhook/',
         '/api/login',
         '/api/model_test',
         '/api/test_mail',
