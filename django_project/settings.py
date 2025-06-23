@@ -33,8 +33,13 @@ PRODUCTION = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 DEBUG = not PRODUCTION
 SETTINGS_DEBUG_AI = not PRODUCTION
 
-ALLOWED_HOSTS = [".replit.dev", ".replit.app"]
-CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
+ALLOWED_HOSTS = [
+    ".replit.dev", ".replit.app", "weeki-production.up.railway.app"
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.replit.dev", "https://*.replit.app",
+    "weeki-production.up.railway.app"
+]
 
 # API Keys
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
