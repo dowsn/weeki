@@ -37,22 +37,6 @@ class Migration(migrations.Migration):
           ],
       ),
       migrations.CreateModel(
-          name='Message',
-          fields=[
-              ('id', models.AutoField(primary_key=True, serialize=False)),
-              ('content', models.TextField(blank=True, max_length=500)),
-              ('date_created',
-               models.DateTimeField(default=django.utils.timezone.now)),
-              ('role',
-               models.CharField(choices=[('user', 'User'),
-                                         ('assistant', 'Assistant')],
-                                max_length=10)),
-              ('chat_session',
-               models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
-                                 to='app.chat_session')),
-          ],
-      ),
-      migrations.CreateModel(
           name='Summary',
           fields=[
               ('id', models.AutoField(primary_key=True, serialize=False)),
