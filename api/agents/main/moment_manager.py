@@ -1,10 +1,5 @@
 # moment_manager.py
-from typing import AsyncGenerator
-from datetime import datetime
 import asyncio
-import json
-from langchain_xai import ChatXAI
-from openai import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
 from api.agents.models.conversation_models import ConversationState, TopicState, MessageState
 from app.models import Chat_Session, Message, Profile, Topic
@@ -14,16 +9,17 @@ from api.agents.handlers.time_manager import TimeManager
 from api.agents.handlers.topic_manager import TopicManager
 from api.agents.handlers.log_manager import LogManager
 from api.agents.handlers.session_manager import SessionManager
-from django.contrib.auth.models import User
 from api.agents.handlers.pinecone_manager import PineconeManager
-from datetime import timedelta
-from typing import Optional
-from langchain_core.language_models.chat_models import BaseChatModel
 
 
 class MomentManager:
 
-  def __init__(self, user, chat_session, ai_model, stream_message, ws_consumer=None):
+  def __init__(self,
+               user,
+               chat_session,
+               ai_model,
+               stream_message,
+               ws_consumer=None):
     self.user = user
     self.has_message = False
     self.chat_session = chat_session
@@ -54,7 +50,6 @@ class MomentManager:
 
     self.graph: ConversationGraphManager = self._setup_graph()
 
-
   def _initialize_state(self) -> ConversationState:
 
     return ConversationState(
@@ -77,7 +72,6 @@ class MomentManager:
         topic_manager=self.topic_manager,
         log_manager=self.log_manager,
         conversation_helper=self.converstation_helper).graph
-
 
   async def test_ai_model(self):
     """
@@ -138,7 +132,6 @@ class MomentManager:
       import traceback
       traceback.print_exc()
       return False
-
 
   async def load_messages(self):
     """Load messages from the database and populate state.messages list"""
@@ -231,7 +224,7 @@ class MomentManager:
       self.session_ended = True
       print("DEBUG: Stopping time manager from moment_manager timeout")
       self.time_manager.stop_monitoring()
-      
+
       # Instead of handling everything here, just notify the WebSocket
       if self.ws_consumer and self.ws_consumer.is_connected:
         print("DEBUG: Scheduling timeout handling in WebSocket context")
@@ -373,16 +366,19 @@ class MomentManager:
     self.time_manager.stop_monitoring()
 
     self.session_manager.update_state(self.state)
-    
+
     # Run handle_state_end without timeout
     try:
       print("DEBUG: About to call handle_state_end")
       await self.session_manager.handle_state_end()
       print("DEBUG: handle_state_end completed successfully")
     except Exception as e:
-      print(f"ERROR: handle_state_end failed: {e} - continuing with end message")
+      print(
+          f"ERROR: handle_state_end failed: {e} - continuing with end message")
 
     print("DEBUG: About to call handle_end")
     response = await self.session_manager.handle_end()
-    print(f"DEBUG: handle_end completed, response length: {len(response) if response else 0}")
+    print(
+        f"DEBUG: handle_end completed, response length: {len(response) if response else 0}"
+    )
     return response.strip() if response else ""
