@@ -38,7 +38,7 @@ ALLOWED_HOSTS = [
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://*.replit.dev", "https://*.replit.app",
-    "weeki-production.up.railway.app"
+    "https://weeki-production.up.railway.app"
 ]
 
 # API Keys
