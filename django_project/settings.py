@@ -19,6 +19,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 APP_NAME = 'weeki'
+
 LOGIN_URL = '/accounts/login/'
 SITE_URL = os.getenv('SITE_URL')
 
