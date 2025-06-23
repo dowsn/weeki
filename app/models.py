@@ -71,6 +71,7 @@ class Profile(models.Model):
   activation_token = EncryptedCharField(max_length=100, blank=True, null=True)
   character = EncryptedTextField(blank=True, null=True, max_length=2000)
   activated = models.BooleanField(default=False)
+  subscribed = models.BooleanField(default=False)
   welcome_mail_sent = models.BooleanField(default=False)
   last_login = models.DateTimeField(auto_now=True)
 

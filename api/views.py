@@ -1336,6 +1336,7 @@ def handle_subscription_active(purchase_token, subscription_id):
   # Update user profile
   profile, _ = Profile.objects.get_or_create(user=user)
   profile.tokens += 4
+  profile.subscribed = True
   profile.subscription_date = subscription.expiry_date
   profile.save()
 

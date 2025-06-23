@@ -115,18 +115,27 @@ TEMPLATES = [
 ]
 
 # Database Configuration
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('PGDATABASE'),
+#         'USER': os.environ.get('PGUSER'),
+#         'PASSWORD': os.environ.get('PGPASSWORD'),
+#         'HOST': os.environ.get('PGHOST'),
+#         'PORT': os.environ.get('PGPORT'),
+#         'OPTIONS': {
+#             'sslmode': 'prefer',
+#         },
+#     }
+# }
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('PGDATABASE'),
-        'USER': os.environ.get('PGUSER'),
-        'PASSWORD': os.environ.get('PGPASSWORD'),
-        'HOST': os.environ.get('PGHOST'),
-        'PORT': os.environ.get('PGPORT'),
-        'OPTIONS': {
-            'sslmode': 'prefer',
-        },
-    }
+    'default':
+    dj_database_url.config(
+        default='sqlite:///db.sqlite3',  # fallback for local development
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
 
 # Update database configuration from $DATABASE_URL if available
