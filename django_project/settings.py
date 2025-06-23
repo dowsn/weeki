@@ -34,7 +34,8 @@ DEBUG = not PRODUCTION
 SETTINGS_DEBUG_AI = not PRODUCTION
 
 ALLOWED_HOSTS = [
-    ".replit.dev", ".replit.app", "weeki-production.up.railway.app"
+    ".replit.dev", ".replit.app", "weeki-production.up.railway.app",
+    "weeki-production.up.railway.app", "localhost", "127.0.0.1"
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://*.replit.dev", "https://*.replit.app",
@@ -212,9 +213,8 @@ else:
 # CORS Settings
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    'http://localhost:8081',
-    'http://localhost:8080',
+    "http://localhost:3000", 'http://localhost:8081', 'http://localhost:8080',
+    "https://weeki-production.up.railway.app"
 ]
 CORS_ALLOW_METHODS = [
     'DELETE',
