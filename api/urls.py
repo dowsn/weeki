@@ -1,6 +1,5 @@
 from django.urls import path
 
-from app.views import memento_mori
 from . import views
 from . import consumers
 
