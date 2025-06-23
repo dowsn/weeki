@@ -235,7 +235,8 @@ class Message(models.Model):
   date_created = models.DateTimeField(default=timezone.now)
   role = models.CharField(max_length=10,
                           choices=[('user', 'User'),
-                                   ('assistant', 'Assistant')])
+                                   ('assistant', 'Assistant')],
+                          default='user')
 
   def __str__(self):
     return f"{self.date_created}"
