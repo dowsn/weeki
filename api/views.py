@@ -3,6 +3,7 @@ from smtplib import SMTPException
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import json
+from django.http import JsonResponse
 import base64
 import hmac
 import hashlib
@@ -1304,8 +1305,9 @@ def handle_subscription_notification(subscription_data):
 
 
 def handle_subscription_active(purchase_token, subscription_id):
-  """Handle active subscription (new, renewed, or recovered)"""
-  # Verify the purchase with Google Play API
+  """Handle active subscription - simplified for single product"""
+
+  # Verify with Google (subscription_id will always be the same)
   subscription_info = verify_subscription_with_google(purchase_token,
                                                       subscription_id)
 
@@ -1313,39 +1315,27 @@ def handle_subscription_active(purchase_token, subscription_id):
     logger.error(f"Could not verify subscription: {purchase_token}")
     return
 
-  # Get or find the user for this subscription
+  # Get user (much simpler with single product)
   user = get_user_from_purchase_token(purchase_token)
   if not user:
     logger.error(f"Could not find user for purchase token: {purchase_token}")
     return
 
-  # Get or create subscription record
-  subscription, created = GooglePlaySubscription.objects.get_or_create(
+  # Update or create subscription record
+  subscription, created = GooglePlaySubscription.objects.update_or_create(
       purchase_token=purchase_token,
       defaults={
           'user': user,
-          'subscription_id': subscription_id,
-          'product_id': subscription_info.get('productId', ''),
+          'subscription_id':
+          settings.GOOGLE_PLAY_SUBSCRIPTION_ID,  # Always the same
           'expiry_time_millis': int(subscription_info['expiryTimeMillis']),
           'auto_renewing': subscription_info.get('autoRenewing', True),
           'order_id': subscription_info.get('orderId', '')
       })
 
-  # Update subscription info if it exists
-  if not created:
-    subscription.expiry_time_millis = int(
-        subscription_info['expiryTimeMillis'])
-    subscription.auto_renewing = subscription_info.get('autoRenewing', True)
-    subscription.order_id = subscription_info.get('orderId', '')
-    subscription.save()
-
   # Update user profile
-  profile, profile_created = Profile.objects.get_or_create(user=user)
-
-  # Add 4 tokens (using your existing field)
-  profile.tokens += 5
-
-  # Set subscription_date to match Google Play expiry (convert to date)
+  profile, _ = Profile.objects.get_or_create(user=user)
+  profile.tokens += 4
   profile.subscription_date = subscription.expiry_date
   profile.save()
 
@@ -1399,33 +1389,37 @@ def verify_subscription_with_google(purchase_token, subscription_id):
     return None
 
 
+@require_POST
+def initiate_purchase(request):
+  """Store user mapping before purchase starts"""
+  try:
+    # Get user from JWT (your middleware handles this)
+    user_id = request.user_id
+
+    # Simple approach: Store the last user who initiated purchase
+    cache.set('last_purchase_user', user_id, 600)  # 10 minutes
+
+    return JsonResponse({'status': 'ready'})
+
+  except Exception as e:
+    logger.error(f"Error in initiate_purchase: {str(e)}")
+    return JsonResponse({'error': 'Failed'}, status=400)
+
+
+# Then update get_user_from_purchase_token:
 def get_user_from_purchase_token(purchase_token):
-  """Get user associated with this purchase token"""
   try:
     subscription = GooglePlaySubscription.objects.get(
         purchase_token=purchase_token)
     return subscription.user
   except GooglePlaySubscription.DoesNotExist:
-    logger.error(
-        f"No user mapping found for new purchase token: {purchase_token}")
+    # Get the last user who initiated a purchase
+    user_id = cache.get('last_purchase_user')
+    if user_id:
+      try:
+        return User.objects.get(id=user_id)
+      except User.DoesNotExist:
+        pass
+
+    logger.error(f"No user mapping found for purchase token: {purchase_token}")
     return None
-
-
-@csrf_exempt
-@require_POST
-def initiate_purchase(request):
-  """Call this from your app when user starts a purchase"""
-  try:
-    data = json.loads(request.body)
-    user_id = data.get('user_id')
-    purchase_token = data.get('purchase_token')
-
-    if user_id and purchase_token:
-      user = User.objects.get(id=user_id)
-      # Store the mapping for later use
-      return HttpResponse('OK', status=200)
-
-  except Exception as e:
-    logger.error(f"Error in initiate_purchase: {str(e)}")
-
-  return HttpResponse('Error', status=400)

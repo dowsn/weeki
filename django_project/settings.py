@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'accounts.apps.AccountsConfig',
     'payments',
-
 ]
 
 # Middleware
@@ -319,6 +318,8 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE')
 GOOGLE_PLAY_PACKAGE_NAME = os.environ.get('GOOGLE_PLAY_PACKAGE_NAME')
-GOOGLE_PUBSUB_VERIFICATION_TOKEN = os.environ.get('GOOGLE_PUBSUB_VERIFICATION_TOKEN')
+GOOGLE_PUBSUB_VERIFICATION_TOKEN = os.environ.get(
+    'GOOGLE_PUBSUB_VERIFICATION_TOKEN')
+GOOGLE_PLAY_SUBSCRIPTION_ID = 'your_monthly_subscription_product_id'
 
 SHOW_ADMIN_DATA = not PRODUCTION

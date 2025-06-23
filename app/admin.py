@@ -40,45 +40,50 @@ class ErrorLogAdmin(admin.ModelAdmin):
 
 # Inline admin for SessionTopic
 class SessionTopicInline(admin.TabularInline):
-    model = SessionTopic
-    extra = 0
-    fields = ('topic', 'status', 'confidence')
-    readonly_fields = ('confidence',)
+  model = SessionTopic
+  extra = 0
+  fields = ('topic', 'status', 'confidence')
+  readonly_fields = ('confidence', )
+
 
 # Custom admin for Chat_Session with useful fields
 @admin.register(Chat_Session)
 class ChatSessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'title', 'time_left', 'first', 'topics', 'character', 'summary')
-    list_filter = ( 'first', 'user')
-    search_fields = ('title', 'summary', 'user__username')
-    readonly_fields = ( 'character')
-    inlines = [SessionTopicInline]
+  # ✅ Fix: Add comma to make it a proper tuple
+  list_display = ('id', 'user', 'title', 'time_left', 'first', 'character',
+                  'summary')  # Removed 'topics'
+  list_filter = ('first', 'user')
+  search_fields = ('title', 'summary', 'user__username')
+  # ✅ Fix: Add comma for single-item tuple
+  readonly_fields = ('character', )  # Note the comma
+  inlines = [SessionTopicInline]
 
-    fieldsets = (
-        ('Basic Info', {
-            'fields': ('user', 'title',  'first')
-        }),
-        ('Session Details', {
-            'fields': ('time_left', 'summary', 'character', 'topic_names')
-        }),
+  fieldsets = (
+      ('Basic Info', {
+          'fields': ('user', 'title', 'first')
+      }),
+      ('Session Details', {
+          'fields': ('time_left', 'summary', 'character', 'topic_names')
+      }),
+  )
 
-    )
+  def get_queryset(self, request):
+    # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
+    return super(admin.ModelAdmin, self).get_queryset(request)
 
-    def get_queryset(self, request):
-        # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
-        return super(admin.ModelAdmin, self).get_queryset(request)
 
 # Separate admin for SessionTopic
 @admin.register(SessionTopic)
 class SessionTopicAdmin(admin.ModelAdmin):
-    list_display = ('session', 'topic', 'status', 'confidence')
-    list_filter = ('status', 'session__user')
-    search_fields = ('session__title', 'topic__name', 'session__user__username')
-    readonly_fields = ('confidence',)
-    
-    def get_queryset(self, request):
-        # Always show data for SessionTopic regardless of SHOW_ADMIN_DATA
-        return super(admin.ModelAdmin, self).get_queryset(request)
+  list_display = ('session', 'topic', 'status', 'confidence')
+  list_filter = ('status', 'session__user')
+  search_fields = ('session__title', 'topic__name', 'session__user__username')
+  readonly_fields = ('confidence', )
+
+  def get_queryset(self, request):
+    # Always show data for SessionTopic regardless of SHOW_ADMIN_DATA
+    return super(admin.ModelAdmin, self).get_queryset(request)
+
 
 # Register all models with SecureAdmin
 admin.site.register(Profile, SecureAdmin)
