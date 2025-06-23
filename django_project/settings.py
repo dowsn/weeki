@@ -37,6 +37,7 @@ ALLOWED_HOSTS = [
     ".replit.dev", ".replit.app", "weeki-production.up.railway.app",
     "weeki-production.up.railway.app", "localhost", "127.0.0.1"
 ]
+
 CSRF_TRUSTED_ORIGINS = [
     "https://*.replit.dev", "https://*.replit.app",
     "https://weeki-production.up.railway.app"
