@@ -225,7 +225,11 @@ class Log(models.Model):
 
 class Message(models.Model):
   id = models.AutoField(primary_key=True)
-  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE, null=True, blank=True  # Allow null temporarily)
+  chat_session = models.ForeignKey(Chat_Session,
+                                   on_delete=models.CASCADE,
+                                   null=True,
+                                   blank=True)  # Allow null temporarily)
+
   show_in = models.BooleanField(default=True)
   content = EncryptedTextField(max_length=500, blank=True)
   date_created = models.DateTimeField(default=timezone.now)
