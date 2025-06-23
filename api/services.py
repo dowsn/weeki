@@ -21,7 +21,7 @@ from smtplib import SMTPException
 
 from collections import defaultdict
 from datetime import datetime
-from .utilities.anthropic import AnthropicAPIUtility
+# from .utilities.anthropic import AnthropicAPIUtility
 # from nurmoai import NurmoAI
 from django.utils.safestring import mark_safe
 
@@ -265,32 +265,31 @@ def validate_password_strength(password: str) -> Tuple[bool, str]:
   return is_valid, message
 
 
-def pinecone_upsert():
-  pc = Pinecone(
-      api_key=
-      "pcsk_xNaso_DERNS2upCC5tP5D5uwWwGz2U5znoeT77w5Ve5foDiYRn8B4HtKBvVCri3yNYLp8"
-  )
+# def pinecone_upsert():
+#   pc = Pinecone(
+#       api_key=
+#       "pcsk_xNaso_DERNS2upCC5tP5D5uwWwGz2U5znoeT77w5Ve5foDiYRn8B4HtKBvVCri3yNYLp8"
+#   )
 
-  # To get the unique host for an index,
-  # see https://docs.pinecone.io/guides/data/target-an-index
-  index = pc.Index(
-      host="https://weeki2-tbsytl8.svc.aped-4627-b74a.pinecone.io")
+#   # To get the unique host for an index,
+#   # see https://docs.pinecone.io/guides/data/target-an-index
+#   index = pc.Index(
+#       host="https://weeki2-tbsytl8.svc.aped-4627-b74a.pinecone.io")
 
-  text = "I work as a circus man"
+#   text = "I work as a circus man"
 
-  embedding = get_embedding(text)
-  print(embedding)
+#   embedding = get_embedding(text)
+#   print(embedding)
 
-  index.upsert(vectors=[{
-      "id": "A",
-      "values": embedding,
-      "metadata": {
-          "text": text,
-          "year": 2020
-      }
-  }],
-               namespace="summaries")
-
+#   index.upsert(vectors=[{
+#       "id": "A",
+#       "values": embedding,
+#       "metadata": {
+#           "text": text,
+#           "year": 2020
+#       }
+#   }],
+#                namespace="summaries")
 
 # def get_embedding(text,
 #                   region_name='us-west-2',
@@ -386,27 +385,27 @@ def paginate_model(model_name, pagination, page, filter_kwargs=None):
   return items
 
 
-def deepgram_text_to_speech(text):
-  try:
+# def deepgram_text_to_speech(text):
+#   try:
 
-    text_data = {"text": text}
-    timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    filename = "media/responses/".timestamp + ".wav"
+#     text_data = {"text": text}
+#     timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+#     filename = "media/responses/".timestamp + ".wav"
 
-    deepgram = DeepgramClient(api_key=os.environ.get("DEEPGRAM_API_KEY"))
-    options = SpeakOptions(model="aura-asteria-en",
-                           encoding="linear16",
-                           container="wav")
+#     deepgram = DeepgramClient(api_key=os.environ.get("DEEPGRAM_API_KEY"))
+#     options = SpeakOptions(model="aura-asteria-en",
+#                            encoding="linear16",
+#                            container="wav")
 
-    # STEP 3: Call the save method on the speak property
-    response = deepgram.speak.v("1").save(filename, text_data, options)
+#     # STEP 3: Call the save method on the speak property
+#     response = deepgram.speak.v("1").save(filename, text_data, options)
 
-    return filename
+#     return filename
 
-  except Exception:
-    print("Error")
+#   except Exception:
+#     print("Error")
 
-    # STEP 2: Configure the options (such as model choice, audio configuration, etc.)
+#     # STEP 2: Configure the options (such as model choice, audio configuration, etc.)
 
 
 def calculate_age(birth_date):
