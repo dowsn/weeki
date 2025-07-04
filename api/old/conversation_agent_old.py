@@ -5,7 +5,6 @@ from langchain import hub
 
 from .graph_model import ConversationState, SessionType
 from .graph_manager import ConversationGraphManager
-from .pinecone_manager import PineconeManager
 
 logger = logging.getLogger(__name__)
 

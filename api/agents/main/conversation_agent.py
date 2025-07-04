@@ -1,7 +1,6 @@
 from typing import AsyncGenerator, Optional
 import json
 import asyncio
-from langchain_xai import ChatXAI
 
 from app.models import User, Chat_Session, Message, Topic, Log, SessionTopic, SessionLog
 from channels.db import database_sync_to_async
@@ -13,7 +12,7 @@ from langchain.chat_models import init_chat_model
 
 class ConversationAgent:
   """
-    Facade that orchestrates the conversation system and provides a simple interface 
+    Facade that orchestrates the conversation system and provides a simple interface
     for the WebSocket consumer
     """
 
@@ -103,7 +102,7 @@ class ConversationAgent:
     @database_sync_to_async
     def update_time_left():
       Chat_Session.objects.filter(id=self.chat_session.id).update(time_left=remaining_time)
-    
+
     # Update local instance and database
     self.chat_session.time_left = remaining_time
     await update_time_left()
@@ -126,7 +125,7 @@ class ConversationAgent:
     and SessionLog association models for better data organization and retrieval
     """
     print("DEBUG: Starting save_session_state")
-    
+
     # Get current state and remaining time
     try:
       print("DEBUG: Getting current state")
@@ -147,7 +146,7 @@ class ConversationAgent:
       except Exception as e:
         print(f"ERROR: update_chat_session failed: {e}")
         # Continue anyway - don't let this block the end session
-        
+
     except Exception as e:
       print(f"ERROR: save_session_state failed: {e}")
       # Don't let this prevent the session from ending

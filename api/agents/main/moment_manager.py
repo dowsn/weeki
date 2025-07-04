@@ -3,8 +3,6 @@ from typing import AsyncGenerator
 from datetime import datetime
 import asyncio
 import json
-from langchain_xai import ChatXAI
-from openai import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
 from api.agents.models.conversation_models import ConversationState, TopicState, MessageState
 from app.models import Chat_Session, Message, Profile, Topic
@@ -231,7 +229,7 @@ class MomentManager:
       self.session_ended = True
       print("DEBUG: Stopping time manager from moment_manager timeout")
       self.time_manager.stop_monitoring()
-      
+
       # Instead of handling everything here, just notify the WebSocket
       if self.ws_consumer and self.ws_consumer.is_connected:
         print("DEBUG: Scheduling timeout handling in WebSocket context")
@@ -373,7 +371,7 @@ class MomentManager:
     self.time_manager.stop_monitoring()
 
     self.session_manager.update_state(self.state)
-    
+
     # Run handle_state_end without timeout
     try:
       print("DEBUG: About to call handle_state_end")
