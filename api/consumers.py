@@ -4,12 +4,8 @@ import json
 from app.models import User, Topic, Message, Chat_Session
 from channels.db import database_sync_to_async
 import asyncio
-from datetime import datetime
-from datetime import timedelta
-from django.utils import timezone
-from .serializers.chat_serializer import MessageSerializer
-from typing import List, Dict, Any
-from .services import get_chat_messages
+
+
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -147,7 +143,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     if not self.is_connected:
       print("Ignoring message - connection already closed")
       return
-      
+
     try:
       data = json.loads(text_data)
       print(f"Received data: {data}")
@@ -280,7 +276,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
   async def handle_timeout(self):
     """Handle automatic timeout - runs in WebSocket context, not monitoring task"""
     print("Handling automatic timeout in WebSocket context")
-    
+
     # This now runs outside the monitoring task, so no cancellation issues
     await self.handle_close(complete=True)
 
@@ -309,7 +305,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     try:
       if hasattr(self, 'agent') and self.agent is not None:
         print(f"DEBUG: Agent exists, proceeding with close operations")
-        
+
         # CRITICAL: Stop time monitoring IMMEDIATELY
         if hasattr(self.agent,
                    'moment_manager') and self.agent.moment_manager is not None:

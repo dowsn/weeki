@@ -1,7 +1,5 @@
 # moment_manager.py
 import asyncio
-from langchain_xai import ChatXAI
-from openai import BaseModel
 from api.agents.handlers.conversation_helper import ConversationHelper
 from api.agents.models.conversation_models import ConversationState, TopicState, MessageState
 from app.models import Chat_Session, Message, Profile, Topic
