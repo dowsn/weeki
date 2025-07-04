@@ -1,11 +1,10 @@
-from typing import AsyncGenerator, Optional
+from typing import Optional
 import json
 import asyncio
 
-from app.models import User, Chat_Session, Message, Topic, Log, SessionTopic, SessionLog
+from app.models import User, Chat_Session, Message
 from channels.db import database_sync_to_async
 from .moment_manager import MomentManager
-from typing import Union, Dict
 from api.agents.models.conversation_models import ConversationState
 from langchain.chat_models import init_chat_model
 

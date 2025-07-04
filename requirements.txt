@@ -10,13 +10,12 @@ daphne
 psycopg2-binary
 dj-database-url
 langchain
-pinecone
 langchain-pinecone
 langchain-community
 langchain-core
+gunicorn
 langgraph
 langsmith
-langchain-pinecone
 pydantic
 nltk==3.9.1
 google-api-python-client==2.88.0

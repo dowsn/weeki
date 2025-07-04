@@ -42,8 +42,6 @@ class EncryptedField(models.Field):
     return 'text'  # Store encrypted data as text
 
 
-
-
 class EncryptedTextField(EncryptedField):
 
   def db_type(self, connection):
@@ -73,6 +71,7 @@ class Profile(models.Model):
   activation_token = EncryptedCharField(max_length=100, blank=True, null=True)
   character = EncryptedTextField(blank=True, null=True, max_length=2000)
   activated = models.BooleanField(default=False)
+  subscribed = models.BooleanField(default=False)
   welcome_mail_sent = models.BooleanField(default=False)
   last_login = models.DateTimeField(auto_now=True)
 
@@ -87,50 +86,53 @@ class Profile(models.Model):
       return None
     except Profile.DoesNotExist:
       return None
+
   def add_tokens(self, amount):
-        """Add tokens to user account"""
-        self.tokens += amount
-        self.save()
+    """Add tokens to user account"""
+    self.tokens += amount
+    self.save()
 
   def extend_subscription(self):
-      """Extend subscription by 1 month from current subscription_date or today"""
-      if self.subscription_date and self.subscription_date >= timezone.now().date():
-          # Extend from current subscription date
-          self.subscription_date = self.subscription_date + relativedelta(months=1)
-      else:
-          # Start from today + 1 month
-          self.subscription_date = timezone.now().date() + relativedelta(months=1)
-      self.save()
+    """Extend subscription by 1 month from current subscription_date or today"""
+    if self.subscription_date and self.subscription_date >= timezone.now(
+    ).date():
+      # Extend from current subscription date
+      self.subscription_date = self.subscription_date + relativedelta(months=1)
+    else:
+      # Start from today + 1 month
+      self.subscription_date = timezone.now().date() + relativedelta(months=1)
+    self.save()
 
   @property
   def is_subscribed(self):
-      """Check if user has active subscription"""
-      if not self.subscription_date:
-          return False
-      return self.subscription_date >= timezone.now().date()
+    """Check if user has active subscription"""
+    if not self.subscription_date:
+      return False
+    return self.subscription_date >= timezone.now().date()
+
 
 class GooglePlaySubscription(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    purchase_token = models.CharField(max_length=500, unique=True)
-    subscription_id = models.CharField(max_length=255)
-    product_id = models.CharField(max_length=255)
-    expiry_time_millis = models.BigIntegerField()
-    auto_renewing = models.BooleanField(default=True)
-    order_id = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+  user = models.ForeignKey(User, on_delete=models.CASCADE)
+  purchase_token = models.CharField(max_length=500, unique=True)
+  subscription_id = models.CharField(max_length=255,
+                                     default='your_monthly_subscription_id')
+  product_id = models.CharField(max_length=255)
+  expiry_time_millis = models.BigIntegerField()
+  auto_renewing = models.BooleanField(default=True)
+  order_id = models.CharField(max_length=255, blank=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+  updated_at = models.DateTimeField(auto_now=True)
 
-    @property
-    def expiry_date(self):
-        """Convert expiry_time_millis to Django datetime"""
-        return timezone.datetime.fromtimestamp(
-            self.expiry_time_millis / 1000,
-            tz=timezone.utc
-        ).date()
+  @property
+  def expiry_date(self):
+    """Convert expiry_time_millis to Django datetime"""
+    return timezone.datetime.fromtimestamp(self.expiry_time_millis / 1000,
+                                           tz=timezone.utc).date()
 
-    class Meta:
-        verbose_name = "Google Play Subscription"
-        verbose_name_plural = "Google Play Subscriptions"
+  class Meta:
+    verbose_name = "Google Play Subscription"
+    verbose_name_plural = "Google Play Subscriptions"
+
 
 class Topic(models.Model):
   id = models.AutoField(primary_key=True)
@@ -223,13 +225,18 @@ class Log(models.Model):
 
 class Message(models.Model):
   id = models.AutoField(primary_key=True)
-  chat_session = models.ForeignKey(Chat_Session, on_delete=models.CASCADE)
+  chat_session = models.ForeignKey(Chat_Session,
+                                   on_delete=models.CASCADE,
+                                   null=True,
+                                   blank=True)  # Allow null temporarily)
+
   show_in = models.BooleanField(default=True)
   content = EncryptedTextField(max_length=500, blank=True)
   date_created = models.DateTimeField(default=timezone.now)
   role = models.CharField(max_length=10,
                           choices=[('user', 'User'),
-                                   ('assistant', 'Assistant')])
+                                   ('assistant', 'Assistant')],
+                          default='user')
 
   def __str__(self):
     return f"{self.date_created}"

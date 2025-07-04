@@ -1,8 +1,6 @@
 from django.urls import path
 
-from app.views import memento_mori
 from . import views
-from . import consumers
 
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
@@ -27,7 +25,6 @@ urlpatterns = [
     path('chat_sessions',
          views.ChatSessionView.as_view(),
          name='chat_sessions'),
-    path('register', views.RegisterView.as_view(), name='register'),
     path('model_test/', views.chats_view, name='websocket_test'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),

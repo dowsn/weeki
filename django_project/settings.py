@@ -19,6 +19,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 APP_NAME = 'weeki'
+
 LOGIN_URL = '/accounts/login/'
 SITE_URL = os.getenv('SITE_URL')
 
@@ -33,8 +34,15 @@ PRODUCTION = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 DEBUG = not PRODUCTION
 SETTINGS_DEBUG_AI = not PRODUCTION
 
-ALLOWED_HOSTS = [".replit.dev", ".replit.app"]
-CSRF_TRUSTED_ORIGINS = ["https://*.replit.dev", "https://*.replit.app"]
+ALLOWED_HOSTS = [
+    ".replit.dev", ".replit.app", "weeki-production.up.railway.app",
+    "weeki-production.up.railway.app", "localhost", "127.0.0.1"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.replit.dev", "https://*.replit.app",
+    "https://weeki-production.up.railway.app"
+]
 
 # API Keys
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
@@ -61,7 +69,6 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'accounts.apps.AccountsConfig',
     'payments',
-
 ]
 
 # Middleware
@@ -108,18 +115,27 @@ TEMPLATES = [
 ]
 
 # Database Configuration
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('PGDATABASE'),
+#         'USER': os.environ.get('PGUSER'),
+#         'PASSWORD': os.environ.get('PGPASSWORD'),
+#         'HOST': os.environ.get('PGHOST'),
+#         'PORT': os.environ.get('PGPORT'),
+#         'OPTIONS': {
+#             'sslmode': 'prefer',
+#         },
+#     }
+# }
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('PGDATABASE'),
-        'USER': os.environ.get('PGUSER'),
-        'PASSWORD': os.environ.get('PGPASSWORD'),
-        'HOST': os.environ.get('PGHOST'),
-        'PORT': os.environ.get('PGPORT'),
-        'OPTIONS': {
-            'sslmode': 'prefer',
-        },
-    }
+    'default':
+    dj_database_url.config(
+        default='sqlite:///db.sqlite3',  # fallback for local development
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
 
 # Update database configuration from $DATABASE_URL if available
@@ -208,9 +224,8 @@ else:
 # CORS Settings
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    'http://localhost:8081',
-    'http://localhost:8080',
+    "http://localhost:3000", 'http://localhost:8081', 'http://localhost:8080',
+    "https://weeki-production.up.railway.app"
 ]
 CORS_ALLOW_METHODS = [
     'DELETE',
@@ -319,6 +334,8 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_SERVICE_ACCOUNT_FILE')
 GOOGLE_PLAY_PACKAGE_NAME = os.environ.get('GOOGLE_PLAY_PACKAGE_NAME')
-GOOGLE_PUBSUB_VERIFICATION_TOKEN = os.environ.get('GOOGLE_PUBSUB_VERIFICATION_TOKEN')
+GOOGLE_PUBSUB_VERIFICATION_TOKEN = os.environ.get(
+    'GOOGLE_PUBSUB_VERIFICATION_TOKEN')
+GOOGLE_PLAY_SUBSCRIPTION_ID = 'your_monthly_subscription_product_id'
 
 SHOW_ADMIN_DATA = not PRODUCTION
