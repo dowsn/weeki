@@ -48,7 +48,7 @@ class SessionTopicInline(admin.TabularInline):
 
 # Custom admin for Chat_Session with useful fields
 @admin.register(Chat_Session)
-class ChatSessionAdmin(admin.ModelAdmin):
+class ChatSessionAdmin(SecureAdmin):
   # ✅ Fix: Add comma to make it a proper tuple
   list_display = ('id', 'user', 'title', 'time_left', 'first', 'character',
                   'summary')  # Removed 'topics'
@@ -68,21 +68,21 @@ class ChatSessionAdmin(admin.ModelAdmin):
   )
 
   def get_queryset(self, request):
-    # Always show data for Chat_Session regardless of SHOW_ADMIN_DATA
-    return super(admin.ModelAdmin, self).get_queryset(request)
+    # Use SecureAdmin's behavior to hide in production
+    return super().get_queryset(request)
 
 
 # Separate admin for SessionTopic
 @admin.register(SessionTopic)
-class SessionTopicAdmin(admin.ModelAdmin):
+class SessionTopicAdmin(SecureAdmin):
   list_display = ('session', 'topic', 'status', 'confidence')
   list_filter = ('status', 'session__user')
   search_fields = ('session__title', 'topic__name', 'session__user__username')
   readonly_fields = ('confidence', )
 
   def get_queryset(self, request):
-    # Always show data for SessionTopic regardless of SHOW_ADMIN_DATA
-    return super(admin.ModelAdmin, self).get_queryset(request)
+    # Use SecureAdmin's behavior to hide in production
+    return super().get_queryset(request)
 
 
 # Register all models with SecureAdmin
