@@ -166,7 +166,13 @@ class SendActivationCode(APIView):
   permission_classes = [AllowAny]
 
   def post(self, request):
+    # Debug logging
+    print(f"DEBUG: Request data: {request.data}")
+    print(f"DEBUG: Request content type: {request.content_type}")
+    
     user_id = request.data.get('userId')
+    print(f"DEBUG: Extracted userId: {user_id}")
+    
     if not user_id:
       return Response({
           'message': 'UserId is required',
