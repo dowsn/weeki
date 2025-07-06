@@ -65,7 +65,7 @@ def chats_view(request):
   # Check if Chat_Session for user 1 is created today
   user_id = 1
 
-  user = User.objects.get(id=user_id)
+  user = User.objects.get(pk=user_id)
 
   today = timezone.now().date()
   chat_session = Chat_Session.objects.filter(user_id=user_id,
@@ -123,7 +123,7 @@ class DeleteUser(APIView):
     user = User.objects.get(id=user_id)
 
     # Verify user ID matches
-    if str(user.id) != str(user_id):
+    if str(user.pk) != str(user_id):
       return Response({
           'message': 'Invalid credentials',
           'error': True
@@ -169,10 +169,10 @@ class SendActivationCode(APIView):
     # Debug logging
     print(f"DEBUG: Request data: {request.data}")
     print(f"DEBUG: Request content type: {request.content_type}")
-    
+
     user_id = request.data.get('userId')
     print(f"DEBUG: Extracted userId: {user_id}")
-    
+
     if not user_id:
       return Response({
           'message': 'UserId is required',
@@ -390,7 +390,7 @@ class RegisterView(APIView):
 
         return Response(
             {
-                'content': user.id,
+                'content': user.pk,
                 'message': 'Registration successful. You can now login.',
                 'error': False
             },
@@ -441,7 +441,7 @@ class UpdateProfile(APIView):
         # Username update and validation
         if username and username != user.username:
           if User.objects.filter(username=username).exclude(
-              id=user.id).exists():
+              pk=user.id).exists():
             return Response(
                 {
                     'message': 'Username already exists',
@@ -1347,7 +1347,7 @@ def handle_subscription_active(purchase_token, subscription_id):
   profile.save()
 
   logger.info(
-      f"Subscription processed for user {user.id}: +4 tokens, expires {subscription.expiry_date}"
+      # f"Subscription processed for user {user.pk}: +4 tokens, expires {subscription.expiry_date}"
   )
 
 
@@ -1358,7 +1358,7 @@ def handle_subscription_canceled(purchase_token):
         purchase_token=purchase_token)
     subscription.auto_renewing = False
     subscription.save()
-    logger.info(f"Subscription canceled for user {subscription.user.id}")
+    # logger.info(f"Subscription canceled for user {subscription.user.id}")
   except GooglePlaySubscription.DoesNotExist:
     logger.error(f"Could not find subscription for token: {purchase_token}")
 
@@ -1370,7 +1370,7 @@ def handle_subscription_paused(purchase_token):
         purchase_token=purchase_token)
     subscription.auto_renewing = False
     subscription.save()
-    logger.info(f"Subscription paused for user {subscription.user.id}")
+    # logger.info(f"Subscription paused for user {subscription.user.id}")
   except GooglePlaySubscription.DoesNotExist:
     logger.error(f"Could not find subscription for token: {purchase_token}")
 
@@ -1424,7 +1424,7 @@ def get_user_from_purchase_token(purchase_token):
     user_id = cache.get('last_purchase_user')
     if user_id:
       try:
-        return User.objects.get(id=user_id)
+        return User.objects.get(pk=user_id)
       except User.DoesNotExist:
         pass
 
