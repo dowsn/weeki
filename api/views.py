@@ -170,7 +170,7 @@ class SendActivationCode(APIView):
     print(f"DEBUG: Request data: {request.data}")
     print(f"DEBUG: Request content type: {request.content_type}")
 
-    user_id = request.data.get('userId')
+    user_id = request.data.get('first_user_id')
     print(f"DEBUG: Extracted userId: {user_id}")
 
     if not user_id:
@@ -251,7 +251,7 @@ class VerifyActivationCode(APIView):
   permission_classes = [AllowAny]
 
   def post(self, request):
-    user_id = request.data.get('userId')
+    user_id = request.data.get('first_user_id')
     token = request.data.get('activationCode')
 
     if not user_id or not token:
