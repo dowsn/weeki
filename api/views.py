@@ -388,6 +388,8 @@ class RegisterView(APIView):
 
         Profile.objects.create(**profile_data)
 
+        print("user" + str(user.pk) + " created")  # Debug log
+
         return Response(
             {
                 'content': user.pk,
